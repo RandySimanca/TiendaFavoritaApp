@@ -68,95 +68,104 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
 
   cargar: async () => {
     try {
-      // 1. Cargar local
+      // 1. Cargar local (instantáneo)
       const dataHist = await dbGetHistorial();
       const dataRet  = await dbGetRetiros();
       
       const historial = dataHist.map(h => JSON.parse(h.datos_json));
       const retiros = dataRet.map(r => ({
-        id: r.id,
-        fecha: r.fecha,
-        valor: r.valor,
-        ts: r.timestamp
+        id: r.id, fecha: r.fecha, valor: r.valor, ts: r.timestamp
       }));
 
       set({ historial, retiros, cargando: false });
 
-      // 2. Sincronizar con Cloud
-      const { data: cloudHist, error: errH } = await supabase.from('historial').select('*');
-      const { data: cloudRet,  error: errR } = await supabase.from('retiros').select('*');
+      // 2. Sincronizar en segundo plano (silencioso)
+      (async () => {
+        try {
+          const { data: cloudHist, error: errH } = await supabase.from('historial').select('*');
+          const { data: cloudRet,  error: errR } = await supabase.from('retiros').select('*');
 
-      if (!errH && cloudHist) {
-        const hCloud = cloudHist.map(h => h.datos_json);
-        set({ historial: hCloud });
-        // TODO: Actualizar SQLite si es necesario
-      }
+          if (!errH && cloudHist) {
+            const hCloud = cloudHist.map(h => h.datos_json);
+            set({ historial: hCloud });
+            // TODO: Podríamos actualizar SQLite si hay discrepancias
+          }
 
-      if (!errR && cloudRet) {
-        const rCloud = cloudRet.map(r => ({
-          id: r.id, fecha: r.fecha, valor: r.valor, ts: r.timestamp
-        }));
-        set({ retiros: rCloud });
-      }
+          if (!errR && cloudRet) {
+            const rCloud = cloudRet.map(r => ({
+              id: r.id, fecha: r.fecha, valor: r.valor, ts: r.timestamp
+            }));
+            set({ retiros: rCloud });
+          }
+        } catch (e) {
+          console.log('Sync historial cloud falló (offline):', e);
+        }
+      })();
 
     } catch (error) {
-      console.error('Error cargando historial sync:', error);
+      console.error('Error cargando historial local:', error);
       set({ cargando: false });
     }
   },
 
   guardarDia: async (estado) => {
     try {
-      // Local
+      // 1. Local (Prioritario)
       await dbInsertHistorial(estado.fecha, estado, estado.total);
       
-      // Cloud
-      await supabase.from('historial').upsert({
+      // 2. Cloud (Background)
+      supabase.from('historial').upsert({
         fecha: estado.fecha,
         datos_json: estado,
         total_vendido: estado.total
+      }).then(({ error }) => {
+        if (error) console.log('Sync historial upsert falló (offline):', error.message);
       });
       
-      // Si el día tiene retiro, guardarlo también
+      // Manejo de Retiros
       if (estado.retiro && estado.retiro > 0) {
         const existe = get().retiros.find(r => r.fecha === estado.fecha);
         if (existe && existe.id !== undefined) {
           await dbDeleteRetiro(existe.id);
-          await supabase.from('retiros').delete().eq('id', existe.id);
+          supabase.from('retiros').delete().eq('id', existe.id).then();
         }
         
-        // Insertar nuevo retiro
         await dbInsertRetiro(estado.fecha, estado.retiro);
-        await supabase.from('retiros').insert({
-          fecha: estado.fecha,
-          valor: estado.retiro,
-          timestamp: Date.now()
-        });
+        supabase.from('retiros').insert({
+          fecha: estado.fecha, valor: estado.retiro, timestamp: Date.now()
+        }).then();
       }
       
+      // Recargar de local para asegurar consistencia UI
       await get().cargar();
     } catch (error) {
-      console.error('Error guardando día sync:', error);
+      console.error('Error guardando historial local:', error);
     }
   },
 
   eliminarDia: async (fecha) => {
     try {
+      // 1. Local
       await dbDeleteHistorial(fecha);
-      await supabase.from('historial').delete().eq('fecha', fecha);
+      // 2. Cloud
+      supabase.from('historial').delete().eq('fecha', fecha).then();
+      
       await get().cargar();
     } catch (error) {
-      console.error('Error eliminando día sync:', error);
+      console.error('Error eliminando historial local:', error);
     }
   },
 
   eliminarRetiro: async (id) => {
     try {
+      // 1. Local
       await dbDeleteRetiro(id);
-      await supabase.from('retiros').delete().eq('id', id);
+      // 2. Cloud
+      supabase.from('retiros').delete().eq('id', id).then();
+      
       await get().cargar();
     } catch (error) {
-      console.error('Error eliminando retiro sync:', error);
+      console.error('Error eliminando retiro local:', error);
     }
   },
 

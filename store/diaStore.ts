@@ -31,6 +31,7 @@ interface DiaStore extends EstadoDia {
   fecha: string;
   resultado: ResultadoCuadre | null;
   guardando: boolean;
+  cargando: boolean;
 
   // Actualiza la fecha del día
   setFecha: (fecha: string) => void;
@@ -63,6 +64,8 @@ interface DiaStore extends EstadoDia {
   suscribirCambios: () => void;
   // Procesar factura con IA (Supabase Edge Function)
   procesarFacturaIA: (base64Image: string) => Promise<void>;
+  // Helper interno
+  _aplicarDatos: (d: any) => void;
 }
 
 // Tipo auxiliar para nombrar las listas de filas
@@ -74,6 +77,7 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
   ...estadoBlanco(),
   resultado: null,
   guardando: false,
+  cargando: true,
 
   setFecha: (fecha) => { set({ fecha }); get().autoGuardar(); },
   setBase:   (base)   => { set({ base });   get().calcular(); get().autoGuardar(); },
@@ -132,60 +136,76 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
   autoGuardar: async () => {
     const estado = get().capturarEstado();
     try {
-      // Local
+      // 1. Local (Prioritario e instantáneo)
       await dbSetBorrador(CLAVE_DIA, estado);
-      // Cloud
-      await supabase.from('borradores').upsert({
+      
+      // 2. Cloud (Segundo plano - silencioso)
+      supabase.from('borradores').upsert({
         key: CLAVE_DIA,
         datos_json: estado,
         updated_at: new Date().toISOString()
+      }).then(({ error }) => {
+        if (error) console.log('Sync borrador cloud falló (offline):', error.message);
       });
     } catch (error) {
-      console.error('Error auto-guardando borrador sync:', error);
+      console.error('Error auto-guardando borrador local:', error);
     }
   },
 
   cargarDiaActual: async () => {
     try {
-      // 1. Cargar local (rápido)
+      // 1. Cargar local (rápido para la UI)
       const local = await dbGetBorrador(CLAVE_DIA);
-      
-      // 2. Cargar cloud (más reciente prevalece)
-      const { data: cloud, error } = await supabase.from('borradores').select('*').eq('key', CLAVE_DIA).single();
-      
-      let d = local;
-      if (!error && cloud) {
-        d = cloud.datos_json;
+      if (local) {
+        get()._aplicarDatos(local);
       }
+      set({ cargando: false });
+      
+      // 2. Cargar cloud en segundo plano para ver si hay algo más reciente
+      (async () => {
+        try {
+          const { data: cloud, error } = await supabase.from('borradores').select('*').eq('key', CLAVE_DIA).single();
+          if (!error && cloud) {
+            // Si el cloud tiene datos, comparamos o aplicamos.
+            get()._aplicarDatos(cloud.datos_json);
+          }
+        } catch (e) {
+          console.log('Error cargando borrador cloud (offline):', e);
+        }
+      })();
 
-      if (!d) return;
-
-      // Restaura los datos
-      set({
-        fecha:    d.fecha    || new Date().toISOString().slice(0, 10),
-        base:     d.base     || 0,
-        cierre:   d.cierre   || 0,
-        retiro:   d.retiro   || 0,
-        facturas: (d.facturas || []).map((f: any, i: number) => ({
-          id: i + 1, thumb: '', proveedor: f.proveedor, resumen: f.resumen, total: f.total
-        })),
-        gastos:              d.gastos?.length              ? d.gastos              : [{ nombre: '', valor: 0 }],
-        creditos:            d.creditos?.length            ? d.creditos            : [{ nombre: '', valor: 0 }],
-        pagos:               d.pagos?.length               ? d.pagos               : [{ nombre: '', valor: 0 }],
-        transferenciaVentas: d.transferenciaVentas?.length ? d.transferenciaVentas : [{ nombre: '', valor: 0 }],
-        transferenciaPagos:  d.transferenciaPagos?.length  ? d.transferenciaPagos  : [{ nombre: '', valor: 0 }],
-      });
-      get().calcular();
     } catch (error) {
-      console.error('Error cargando borrador sync:', error);
+      console.error('Error cargando borrador local:', error);
+      set({ cargando: false });
     }
+  },
+
+  // Helper privado para inyectar datos en el estado
+  _aplicarDatos: (d: any) => {
+    set({
+      fecha:    d.fecha    || new Date().toISOString().slice(0, 10),
+      base:     d.base     || 0,
+      cierre:   d.cierre   || 0,
+      retiro:   d.retiro   || 0,
+      facturas: (d.facturas || []).map((f: any, i: number) => ({
+        id: i + 1, thumb: '', proveedor: f.proveedor, resumen: f.resumen, total: f.total
+      })),
+      gastos:              d.gastos?.length              ? d.gastos              : [{ nombre: '', valor: 0 }],
+      creditos:            d.creditos?.length            ? d.creditos            : [{ nombre: '', valor: 0 }],
+      pagos:               d.pagos?.length               ? d.pagos               : [{ nombre: '', valor: 0 }],
+      transferenciaVentas: d.transferenciaVentas?.length ? d.transferenciaVentas : [{ nombre: '', valor: 0 }],
+      transferenciaPagos:  d.transferenciaPagos?.length  ? d.transferenciaPagos  : [{ nombre: '', valor: 0 }],
+    });
+    get().calcular();
   },
 
   limpiar: async () => {
     set({ fecha: new Date().toISOString().slice(0, 10), ...estadoBlanco(), resultado: null });
     try { 
+      // Local primero
       await dbDeleteBorrador(CLAVE_DIA); 
-      await supabase.from('borradores').delete().eq('key', CLAVE_DIA);
+      // Cloud después (segundo plano)
+      supabase.from('borradores').delete().eq('key', CLAVE_DIA).then();
     } catch (error) {}
   },
 

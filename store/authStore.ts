@@ -127,19 +127,26 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       if (session) {
         set({ user: session.user });
         
-        const { data: p } = await supabase
+        // Intentar obtener perfil del servidor
+        const { data: p, error: perfilError } = await supabase
           .from('perfiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
           
-        if (p) {
+        if (!perfilError && p) {
           set({ rol: p.rol as Rol, perfil: p as Perfil });
-          // Actualizar caché
           await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ rol: p.rol, perfil: p }));
+        } else {
+          // Si hay error de red o no hay perfil en nube, intentar caché
+          const cache = await AsyncStorage.getItem(CACHE_KEY);
+          if (cache) {
+            const { rol, perfil } = JSON.parse(cache);
+            set({ rol, perfil });
+          }
         }
       } else {
-        // No hay sesión en Supabase -> ¿Hay algo en caché?
+        // No hay sesión activa en Supabase -> ¿Hay algo en caché?
         const cache = await AsyncStorage.getItem(CACHE_KEY);
         if (cache) {
           const { rol, perfil } = JSON.parse(cache);
@@ -147,8 +154,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         }
       }
     } catch (error) {
-      console.error("Error recuperando sesión, intentando caché:", error);
-      // Si falla la red, intentar cargara desde caché
+      console.error("Error crítico en recuperarSesion, intentando caché:", error);
       const cache = await AsyncStorage.getItem(CACHE_KEY);
       if (cache) {
         const { rol, perfil } = JSON.parse(cache);

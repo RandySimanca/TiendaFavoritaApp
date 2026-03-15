@@ -46,49 +46,57 @@ export const usePreciosStore = create<PreciosStore>((set, get) => ({
 
   cargar: async () => {
     try {
-      // 1. Cargar lo que haya en SQLite (rápido)
+      // 1. Cargar lo que haya en SQLite (instantáneo)
       let data = await dbGetPrecios();
       
       if (data.length === 0) {
-        // Primera vez total: cargar iniciales
+        // Primera vez: cargar iniciales
         await dbInsertPreciosBulk(PRECIOS_INICIALES);
         data = await dbGetPrecios();
       }
       set({ precios: data, cargando: false });
 
-      // 2. Intentar cargar desde Supabase (sincronización)
-      const { data: cloudData, error } = await supabase.from('precios').select('*');
-      if (!error && cloudData && cloudData.length > 0) {
-        // En un app real aquí haríamos match de IDs y timestamps.
-        // Como simplificación para la Fase 2: si hay datos en Supabase, prevalecen.
-        // Pero no queremos borrar SQLite si no hay internet.
-        set({ precios: cloudData });
-        // Opcional: actualizar SQLite con lo del cloud (pendiente lógica de diff)
-      } else if (!error && cloudData && cloudData.length === 0 && data.length > 0) {
-        // Si el cloud está vacío pero local tiene datos, subirlos (seed inicial cloud)
-        await supabase.from('precios').insert(data.map(p => ({
-          nombre: p.nombre, proveedor: p.proveedor, compra: p.compra, venta: p.venta, unidad: p.unidad
-        })));
-      }
+      // 2. Sincronización en segundo plano (sin await para no bloquear la UI)
+      (async () => {
+        try {
+          const { data: cloudData, error } = await supabase.from('precios').select('*');
+          if (!error && cloudData && cloudData.length > 0) {
+            // Si el cloud tiene datos, los mostramos. 
+            // TODO: En el futuro implementar merge inteligente.
+            set({ precios: cloudData });
+          } else if (!error && cloudData && cloudData.length === 0 && data.length > 0) {
+            // Seed inicial al cloud si está vacío
+            await supabase.from('precios').insert(data.map(p => ({
+              nombre: p.nombre, proveedor: p.proveedor, compra: p.compra, venta: p.venta, unidad: p.unidad
+            })));
+          }
+        } catch (e) {
+          console.log('Sync de precios falló (offline):', e);
+        }
+      })();
+
     } catch (error) {
-      console.error('Error cargando precios sync:', error);
+      console.error('Error cargando precios local:', error);
       set({ cargando: false });
     }
   },
 
   agregar: async (p) => {
     try {
-      // Local
+      // 1. Guardar en SQLite y actualizar UI inmediatamente
       await dbInsertPrecio(p);
       const data = await dbGetPrecios();
       set({ precios: data });
 
-      // Cloud
-      await supabase.from('precios').insert([{
+      // 2. Intentar guardar en nube en segundo plano (silencioso)
+      supabase.from('precios').insert([{
         nombre: p.nombre, proveedor: p.proveedor, compra: p.compra, venta: p.venta, unidad: p.unidad
-      }]);
+      }]).then(({ error }) => {
+        if (error) console.log('Error cloud agregar precio:', error.message);
+      });
+
     } catch (error) {
-      console.error('Error agregando precio sync:', error);
+      console.error('Error agregando precio local:', error);
     }
   },
 
@@ -96,18 +104,20 @@ export const usePreciosStore = create<PreciosStore>((set, get) => ({
     try {
       const pOriginal = get().precios[idx] as any;
       if (pOriginal && pOriginal.id !== undefined) {
-        // Local
+        // 1. Local
         await dbUpdatePrecio(pOriginal.id, p);
         const data = await dbGetPrecios();
         set({ precios: data });
 
-        // Cloud
-        await supabase.from('precios').update({
+        // 2. Cloud (silencioso)
+        supabase.from('precios').update({
           nombre: p.nombre, proveedor: p.proveedor, compra: p.compra, venta: p.venta, unidad: p.unidad
-        }).eq('id', pOriginal.id);
+        }).eq('id', pOriginal.id).then(({ error }) => {
+          if (error) console.log('Error cloud editar precio:', error.message);
+        });
       }
     } catch (error) {
-      console.error('Error editando precio sync:', error);
+      console.error('Error editando precio local:', error);
     }
   },
 
@@ -115,16 +125,18 @@ export const usePreciosStore = create<PreciosStore>((set, get) => ({
     try {
       const pOriginal = get().precios[idx] as any;
       if (pOriginal && pOriginal.id !== undefined) {
-        // Local
+        // 1. Local
         await dbDeletePrecio(pOriginal.id);
         const data = await dbGetPrecios();
         set({ precios: data });
 
-        // Cloud
-        await supabase.from('precios').delete().eq('id', pOriginal.id);
+        // 2. Cloud (silencioso)
+        supabase.from('precios').delete().eq('id', pOriginal.id).then(({ error }) => {
+          if (error) console.log('Error cloud eliminar precio:', error.message);
+        });
       }
     } catch (error) {
-      console.error('Error eliminando precio sync:', error);
+      console.error('Error eliminando precio local:', error);
     }
   },
 
