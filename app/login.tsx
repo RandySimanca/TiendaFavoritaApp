@@ -31,7 +31,7 @@ export default function LoginScreen() {
     const { error } = await login(email, password);
     
     if (!error) {
-      router.replace('/(tabs)/hoy');
+      // Dejamos que el _layout.tsx maneje la redirección al cambiar el estado de 'rol'
     } else {
       setErrorMsg(error);
       setTimeout(() => setErrorMsg(null), 5000);

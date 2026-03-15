@@ -74,13 +74,18 @@ export default function RootLayout() {
     if (cargando || !dbListo) return;
 
     const enTabs = segments[0] === '(tabs)';
+    const enLogin = segments[0] === 'login';
 
-    if (rol && !enTabs) {
-      // Tiene sesión pero no está en el grupo (tabs) → ir a hoy
+    if (rol && enLogin) {
+      // Tiene sesión pero está en login -> ir a hoy
       router.replace('/(tabs)/hoy');
     } else if (!rol && enTabs) {
-      // No tiene sesión pero está en el grupo (tabs) → ir a login
-      router.replace('/login');
+      // No tiene sesión pero está dentro de la app -> ir a login
+      // Usamos un pequeño delay para evitar conflictos de renderizado en Android
+      const timer = setTimeout(() => {
+        router.replace('/login');
+      }, 50);
+      return () => clearTimeout(timer);
     }
   }, [rol, cargando, dbListo, segments]);
 
