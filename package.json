@@ -9,7 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "deploy": "npx eas update --branch production"
+    "deploy": "npx eas update --branch production --platform android --platform ios"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from 'react';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../store/authStore';
 import { useHistorialStore } from '../store/historialStore';
@@ -24,6 +24,7 @@ export default function RootLayout() {
   const cargarPrecios   = usePreciosStore(s => s.cargar);
   const cargarDia       = useDiaStore(s => s.cargarDiaActual);
   const router = useRouter();
+  const segments = useSegments();
   
   const { isUpdatePending } = Updates.useUpdates();
 
@@ -72,14 +73,16 @@ export default function RootLayout() {
   useEffect(() => {
     if (cargando || !dbListo) return;
 
-    if (rol) {
-      // Tiene sesión → ir al cuadre del día (si no estamos ya ahí)
+    const enTabs = segments[0] === '(tabs)';
+
+    if (rol && !enTabs) {
+      // Tiene sesión pero no está en el grupo (tabs) → ir a hoy
       router.replace('/(tabs)/hoy');
-    } else {
-      // Sin sesión → ir al login
+    } else if (!rol && enTabs) {
+      // No tiene sesión pero está en el grupo (tabs) → ir a login
       router.replace('/login');
     }
-  }, [rol, cargando, dbListo]);
+  }, [rol, cargando, dbListo, segments]);
 
   return (
     <>
