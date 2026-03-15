@@ -3,6 +3,9 @@
 import { create } from 'zustand';
 import { supabase } from '../utils/supabase';
 import { User } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const CACHE_KEY = '@auth_perfil';
 
 export type Rol = 'admin' | 'trabajador' | null;
 
@@ -62,6 +65,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         perfil: p as Perfil
       });
 
+      // Guardar en caché para acceso offline
+      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({
+        rol: p.rol,
+        perfil: p
+      }));
+
       return { error: null };
     } catch (error: any) {
       console.error("Error en login:", error.message);
@@ -107,6 +116,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   cerrarSesion: async () => {
     await supabase.auth.signOut();
+    await AsyncStorage.removeItem(CACHE_KEY);
     set({ user: null, rol: null, perfil: null });
   },
 
@@ -125,10 +135,25 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           
         if (p) {
           set({ rol: p.rol as Rol, perfil: p as Perfil });
+          // Actualizar caché
+          await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ rol: p.rol, perfil: p }));
+        }
+      } else {
+        // No hay sesión en Supabase -> ¿Hay algo en caché?
+        const cache = await AsyncStorage.getItem(CACHE_KEY);
+        if (cache) {
+          const { rol, perfil } = JSON.parse(cache);
+          set({ rol, perfil });
         }
       }
     } catch (error) {
-      console.error("Error recuperando sesión:", error);
+      console.error("Error recuperando sesión, intentando caché:", error);
+      // Si falla la red, intentar cargara desde caché
+      const cache = await AsyncStorage.getItem(CACHE_KEY);
+      if (cache) {
+        const { rol, perfil } = JSON.parse(cache);
+        set({ rol, perfil });
+      }
     } finally {
       set({ cargando: false });
     }
