@@ -1,50 +1,86 @@
-# Welcome to your Expo app 👋
+# Tienda Favorita App 🛒📱
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicación móvil desarrollada en **React Native (Expo)** para la gestión diaria de ingresos, ventas, gastos y control de inventario de una tienda de abarrotes. Construida con una arquitectura verdaderamente **Offline-First**, garantizando fluidez y resistencia a fallos de red, sincronizándose de forma transparente con **Supabase** en la nube.
 
-## Get started
+## ✨ Características Principales
 
-1. Install dependencies
+- **📱 Arquitectura 100% Offline-First**: Velocidad instantánea. La aplicación lee y escribe directamente en la base de datos local (SQLite) y sincroniza los cambios de forma silenciosa en segundo plano con la nube cuando hay conexión.
+- **📊 Cuadre Diario Automático**: Cálculo automático de base, ventas (efectivo/transferencias), gastos, créditos y retiros para obtener el resultado limpio del día.
+- **☁️ Sincronización en la Nube**: Backup automático y en tiempo real utilizando Supabase (Auth, Database y Edge Functions).
+- **🤖 Inteligencia Artificial (Claude API)**: Análisis automatizado de facturas a partir de fotografías. La IA lee la imagen extrayendo proveedor y total de la compra sin digitación manual.
+- **📄 Generación de Reportes PDF**: Exportación profesional de cierres diarios, resúmenes históricos e inventario general, listos para imprimir o compartir vía WhatsApp/Email.
+- **👥 Roles y Permisos (RBAC)**: Accesos segregados entre "Trabajadores" (registro diario) y "Dueña/Administrador" (control total, retiros, vistas históricas y gestión de usuarios).
+- **🚀 Actualizaciones OTA (Over-The-Air)**: Mejoras y parches enviados directamente a los dispositivos sin necesidad de generar nuevos APK ni pasar por las tiendas de aplicaciones (gracias a Expo EAS Update).
 
-   ```bash
-   npm install
-   ```
+## 🛠️ Tecnologías Utilizadas
 
-2. Start the app
+- **Frontend**: [React Native](https://reactnative.dev/) (con [Expo Router](https://docs.expo.dev/router/introduction/) para navegación basada en archivos).
+- **Estado Global**: [Zustand](https://github.com/pmndrs/zustand) (stores separados para Autenticación, Día actual, Precios e Historial).
+- **Almacenamiento Local**: [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/) (motor principal de la App) y `AsyncStorage` (para caché de sesión offline).
+- **Backend & Base de Datos**: [Supabase](https://supabase.com/) (PostgreSQL, Authentication y Edge Functions en Deno).
+- **Estilos**: Vanilla CSS / React Native StyleSheet con paleta de colores curada y neumorfismo moderno.
+- **Generación de PDF**: [Expo Print](https://docs.expo.dev/versions/latest/sdk/print/) combinado con plantillas HTML a medida.
+- **Despliegue y Distribución**: [EAS (Expo Application Services)](https://expo.dev/eas).
 
-   ```bash
-   npx expo start
-   ```
+## 🚀 Instalación y Desarrollo Local
 
-In the output, you'll find options to open the app in a
+### 1. Prerrequisitos
+- Node.js (v18 o superior recomendado).
+- Cuenta activa en Supabase.
+- Dispositivo físico con Expo Go o emuladores de Android/iOS configurados.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+### 2. Clonar el repositorio y dependencias
 ```bash
-npm run reset-project
+git clone https://github.com/RandySimanca/TiendaFavoritaApp.git
+cd TiendaFavoritaApp
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 3. Configuración del Entorno (Variables)
+Crea un archivo `.env` en la raíz del proyecto para vincular tu backend de Supabase:
+```env
+EXPO_PUBLIC_SUPABASE_URL=tu_url_de_supabase_aqui
+EXPO_PUBLIC_SUPABASE_ANON_KEY=tu_llave_anon_de_supabase_aqui
+```
 
-## Learn more
+### 4. Configuración del Backend (Supabase)
+Dentro del panel de Supabase:
+1.  **Auth**: Configura habilitado el inicio de sesión por Email/Pass.
+2.  **SQL Editor**: Crea las tablas correspondientes (`perfiles`, `precios`, `historial`, `retiros`, `borradores`).
+3.  **Functions**: Despliega las Edge Functions de IA (`procesar-factura` usando tu API Key de Anthropic/Claude) y la función administrativa (`gestionar-usuarios`).
 
-To learn more about developing your project with Expo, look at the following resources:
+### 5. Iniciar la aplicación
+```bash
+# Iniciar servidor de desarrollo de Metro
+npm start
+# O levantar directamente para un SO específico:
+npm run android
+npm run ios
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 📦 Construcción y Despliegue (Production)
 
-## Join the community
+### Construir un archivo instalable (APK para Android)
+```bash
+npx eas build -p android --profile preview
+```
 
-Join our community of developers creating universal apps.
+### Lanzar actualizaciones al aire (OTA)
+Realiza cambios en tu código y ejecútalo directo a celulares de producción:
+```bash
+npm run deploy -- --message "Breve descripción de este cambio"
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 🔐 Estructura de Proyecto
+
+- `/app`: Rutas del frontend de la app y Layouts (basado en Expo Router).
+  - `/(tabs)`: Pantallas internas (Hoy, Precios, Historial, Retiros).
+  - `/login.tsx`: Puerta de entrada.
+- `/components/ui`: Componentes visuales reutilizables (Cards, Botones, Filas, Modales).
+- `/constants`: Tokens de diseño (Colores, Tipografías, Tema).
+- `/store`: Lógica de negocio 100% Offline-First (Zustand).
+- `/utils`: Servicios compartidos (cálculos matemáticos, PDF Service, SQLite Base, Config de Supabase).
+- `/assets`: Imágenes estáticas y logo de la tienda.
+
+---
+*Desarrollado para Tienda Favorita.*
