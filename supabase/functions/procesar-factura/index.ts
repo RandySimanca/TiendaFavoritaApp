@@ -13,6 +13,8 @@ serve(async (req: Request) => {
   }
 
   try {
+    console.log("Inicio función");
+
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY")
     if (!apiKey) {
       console.error("CRÍTICO: No se encontró ANTHROPIC_API_KEY en las variables de entorno.")
@@ -23,6 +25,7 @@ serve(async (req: Request) => {
     }
 
     const body = await req.json().catch(() => null)
+    console.log("Body recibido:", body ? { ...body, image_url: body.image_url ? "[BASE64_OCULTO]" : null } : null);
     if (!body || !body.image_url) {
       console.error("ERROR: Cuerpo de petición inválido o falta image_url")
       return new Response(JSON.stringify({ error: "Cuerpo de petición inválido" }), { 
@@ -82,10 +85,10 @@ serve(async (req: Request) => {
     })
 
   } catch (err: any) {
-    console.error("ERROR DETECTADO EN LA FUNCIÓN:", err.message)
-    console.error("Detalle del error:", JSON.stringify(err))
+    console.error("ERROR REAL:", err);
+    console.error("Detalle del error completo:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
     
-    return new Response(JSON.stringify({ error: err.message, stack: err.stack }), {
+    return new Response(JSON.stringify({ error: err?.message || 'Error desconocido', stack: err?.stack }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     })
