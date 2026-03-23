@@ -94,6 +94,21 @@ export default function HistorialScreen() {
           </View>
         )}
 
+        {/* Ingreso del día (si hay) */}
+        {(d.ingreso || 0) > 0 && (
+          <View style={[estilos.detTotalBox, { backgroundColor: '#dcfce7', marginTop: 4 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[estilos.detTotalLabel, { color: '#166534' }]}>💰 Ingreso a caja:</Text>
+              {d.notaIngreso ? (
+                <Text style={{ fontSize: 11, color: '#15803d', fontWeight: '600', marginTop: 2 }}>
+                  📝 {d.notaIngreso}
+                </Text>
+              ) : null}
+            </View>
+            <Text style={[estilos.detTotalValor, { color: '#166534' }]}>{fmt(d.ingreso || 0)}</Text>
+          </View>
+        )}
+
         {/* Botón eliminar solo para el admin */}
         {esAdmin && (
           <TouchableOpacity

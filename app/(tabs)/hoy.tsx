@@ -49,6 +49,10 @@ export default function HoyScreen() {
   const setRetiro          = useDiaStore(s => s.setRetiro);
   const notaRetiro         = useDiaStore(s => s.notaRetiro);
   const setNotaRetiro      = useDiaStore(s => s.setNotaRetiro);
+  const ingreso            = useDiaStore(s => s.ingreso);
+  const notaIngreso        = useDiaStore(s => s.notaIngreso);
+  const setIngreso         = useDiaStore(s => s.setIngreso);
+  const setNotaIngreso     = useDiaStore(s => s.setNotaIngreso);
   const agregarFactura     = useDiaStore(s => s.agregarFactura);
   const eliminarFactura    = useDiaStore(s => s.eliminarFactura);
   const agregarFila        = useDiaStore(s => s.agregarFila);
@@ -457,6 +461,33 @@ export default function HoyScreen() {
               <Text style={{ fontSize: 11, color: Colors.gray, fontWeight: '700' }}>
                 El retiro se registra por separado — solo visible para usted.
               </Text>
+
+              {/* Ingreso de dinero a caja */}
+              <View style={[estilos.separadorSeccion]} />
+              <View style={estilos.inputGroup}>
+                <Text style={estilos.inputLabel}>💰 Ingreso a caja (abono del admin):</Text>
+                <Text style={estilos.prefijo}>$</Text>
+                <TextInput
+                  style={estilos.inputNumerico}
+                  value={ingreso === 0 ? '' : String(ingreso)}
+                  onChangeText={v => setIngreso(parseFloat(v) || 0)}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={Colors.gray}
+                  textAlign="right"
+                />
+              </View>
+              <TextInput
+                style={estilos.inputNotaRetiro}
+                value={notaIngreso}
+                onChangeText={setNotaIngreso}
+                placeholder="📝 Nota del ingreso (opcional)..."
+                placeholderTextColor={Colors.gray}
+                maxLength={100}
+              />
+              <Text style={{ fontSize: 11, color: Colors.blue, fontWeight: '700' }}>
+                El ingreso se suma a la base — no afecta las ventas.
+              </Text>
             </>
           )}
         </CardSection>
@@ -686,6 +717,12 @@ const estilos = StyleSheet.create({
     borderRadius: 9,
     padding: 10,
     marginBottom: 11,
+  },
+  separadorSeccion: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: 12,
+    opacity: 0.5,
   },
   inputNotaRetiro: {
     borderWidth: 1.5,

@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 
 export default function RetirosScreen() {
   const esAdmin = useAuthStore(s => s.esDuena());
-  const { retiros, eliminarRetiro } = useHistorialStore();
+  const { retiros, ingresos, eliminarRetiro, eliminarIngreso } = useHistorialStore();
   const router = useRouter();
 
   // Si un trabajador llega aquí, redirigir (doble protección)
@@ -26,8 +26,9 @@ export default function RetirosScreen() {
     return null;
   }
 
-  // Suma total histórico de retiros
+  // Suma totales
   const totalRetirado = retiros.reduce((s, r) => s + (r.valor || 0), 0);
+  const totalIngresado = ingresos.reduce((s, i) => s + (i.valor || 0), 0);
 
   // Formatea la fecha en texto legible
   function fechaLegible(fecha: string) {
@@ -37,11 +38,16 @@ export default function RetirosScreen() {
     });
   }
 
-  // Confirma y elimina un retiro
-  function handleEliminar(id: number) {
-    Alert.alert('¿Eliminar retiro?', 'Esta acción no se puede deshacer.', [
+  // Confirma y elimina un registro
+  function handleEliminar(id: number, tipo: 'retiro' | 'ingreso') {
+    const titulo = tipo === 'retiro' ? '¿Eliminar retiro?' : '¿Eliminar ingreso?';
+    Alert.alert(titulo, 'Esta acción no se puede deshacer.', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => eliminarRetiro(id) },
+      { 
+        text: 'Eliminar', 
+        style: 'destructive', 
+        onPress: () => tipo === 'retiro' ? eliminarRetiro(id) : eliminarIngreso(id) 
+      },
     ]);
   }
 
@@ -51,40 +57,65 @@ export default function RetirosScreen() {
 
       {/* Encabezado */}
       <View style={estilos.encHead}>
-        <Text style={estilos.encTitulo}>💼 Mis Retiros (Admin)</Text>
+        <Text style={estilos.encTitulo}>💼 Caja: Retiros e Ingresos (Admin)</Text>
       </View>
 
-      {/* Resumen total retirado */}
-      <LinearGradient colors={['#14532d', '#16a34a']} style={estilos.totalBox} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-        <Text style={estilos.totalLabel}>Total retirado (histórico)</Text>
-        <Text style={estilos.totalValor}>{fmt(totalRetirado)}</Text>
-        <Text style={estilos.totalCount}>
-          {retiros.length} {retiros.length === 1 ? 'retiro registrado' : 'retiros registrados'}
-        </Text>
-      </LinearGradient>
+      {/* Resumen Totales */}
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+        <LinearGradient colors={['#14532d', '#16a34a']} style={[estilos.totalBox, { flex: 1 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <Text style={estilos.totalLabel}>Retiros</Text>
+          <Text style={estilos.totalValorSmall}>{fmt(totalRetirado)}</Text>
+        </LinearGradient>
+        <LinearGradient colors={['#1e3a8a', '#2563eb']} style={[estilos.totalBox, { flex: 1 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <Text style={estilos.totalLabel}>Ingresos</Text>
+          <Text style={estilos.totalValorSmall}>{fmt(totalIngresado)}</Text>
+        </LinearGradient>
+      </View>
 
-      {/* Lista de retiros */}
+      {/* Sección Retiros */}
+      <Text style={estilos.seccionTitulo}>💼 Historial de Retiros</Text>
       {retiros.length === 0 ? (
         <View style={estilos.vacio}>
-          <Text style={{ fontSize: 40 }}>💼</Text>
-          <Text style={estilos.vacioTexto}>
-            No hay retiros aún.{'\n'}Anote un retiro en la pestaña "Hoy" al cerrar el día.
-          </Text>
+          <Text style={estilos.vacioTexto}>No hay retiros registrados.</Text>
         </View>
       ) : (
         retiros.map((r, i) => (
-          <View key={i} style={estilos.item}>
+          <View key={`ret-${i}`} style={estilos.item}>
             <View style={{ flex: 1 }}>
-              <Text style={estilos.itemFecha}>💼 {fechaLegible(r.fecha)}</Text>
-              {r.nota ? (
-                <Text style={estilos.itemNota}>📝 {r.nota}</Text>
-              ) : (
-                <Text style={estilos.itemSub}>Retiro para caja personal</Text>
-              )}
+              <Text style={estilos.itemFecha}>{fechaLegible(r.fecha)}</Text>
+              <Text style={r.nota ? estilos.itemNota : estilos.itemSub}>
+                {r.nota ? `📝 ${r.nota}` : 'Retiro para caja personal'}
+              </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={estilos.itemValor}>{fmt(r.valor)}</Text>
-              <TouchableOpacity style={estilos.btnDel} onPress={() => r.id !== undefined && handleEliminar(r.id)}>
+              <Text style={estilos.itemValorRet}>{fmt(r.valor)}</Text>
+              <TouchableOpacity style={estilos.btnDel} onPress={() => r.id !== undefined && handleEliminar(r.id, 'retiro')}>
+                <Text style={{ color: Colors.red, fontSize: 18, fontWeight: '800' }}>×</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))
+      )}
+
+      {/* Sección Ingresos */}
+      <View style={{ marginTop: 20 }} />
+      <Text style={estilos.seccionTitulo}>💰 Historial de Ingresos</Text>
+      {ingresos.length === 0 ? (
+        <View style={estilos.vacio}>
+          <Text style={estilos.vacioTexto}>No hay ingresos registrados.</Text>
+        </View>
+      ) : (
+        ingresos.map((ing, i) => (
+          <View key={`ing-${i}`} style={estilos.item}>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.itemFecha}>{fechaLegible(ing.fecha)}</Text>
+              <Text style={ing.nota ? estilos.itemNotaIng : estilos.itemSub}>
+                {ing.nota ? `📝 ${ing.nota}` : 'Abono a base de caja'}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={estilos.itemValorIng}>{fmt(ing.valor)}</Text>
+              <TouchableOpacity style={estilos.btnDel} onPress={() => ing.id !== undefined && handleEliminar(ing.id, 'ingreso')}>
                 <Text style={{ color: Colors.red, fontSize: 18, fontWeight: '800' }}>×</Text>
               </TouchableOpacity>
             </View>
@@ -105,22 +136,26 @@ const estilos = StyleSheet.create({
   encTitulo: { fontSize: 16, fontWeight: '900', color: Colors.dark },
 
   // Caja de total
-  totalBox: { borderRadius: 14, padding: 16, marginBottom: 12, alignItems: 'center' },
-  totalLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
-  totalValor: { color: Colors.white, fontSize: 28, fontWeight: '900' },
+  totalBox: { borderRadius: 12, padding: 12, alignItems: 'center', justifyContent: 'center' },
+  totalLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', marginBottom: 2 },
+  totalValorSmall: { color: Colors.white, fontSize: 18, fontWeight: '900' },
   totalCount: { color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '700', marginTop: 4 },
 
-  // Ítem de retiro
+  seccionTitulo: { fontSize: 13, fontWeight: '800', color: Colors.gray, marginBottom: 10, textTransform: 'uppercase' },
+
+  // Ítem de lista
   item: {
     backgroundColor: Colors.white, borderRadius: 14, padding: 12,
-    marginBottom: 10, flexDirection: 'row', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
+    marginBottom: 8, flexDirection: 'row', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 1,
   },
-  itemFecha: { fontSize: 14, fontWeight: '900', color: Colors.dark },
-  itemSub:   { fontSize: 11, color: Colors.gray, fontWeight: '700', marginTop: 2 },
-  itemNota:  { fontSize: 12, color: '#92400e', fontWeight: '700', marginTop: 2 },
-  itemValor: { fontSize: 18, fontWeight: '900', color: Colors.green },
-  btnDel: { backgroundColor: Colors.redLight, borderRadius: 8, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  itemFecha: { fontSize: 13, fontWeight: '800', color: Colors.dark },
+  itemSub:   { fontSize: 11, color: Colors.gray, fontWeight: '700', marginTop: 1 },
+  itemNota:  { fontSize: 11, color: '#92400e', fontWeight: '700', marginTop: 1 },
+  itemNotaIng: { fontSize: 11, color: '#166534', fontWeight: '700', marginTop: 1 },
+  itemValorRet: { fontSize: 16, fontWeight: '900', color: Colors.red },
+  itemValorIng: { fontSize: 16, fontWeight: '900', color: Colors.green },
+  btnDel: { backgroundColor: Colors.redLight, borderRadius: 8, width: 26, height: 26, alignItems: 'center', justifyContent: 'center' },
 
   // Pantalla vacía
   vacio: { alignItems: 'center', padding: 40 },

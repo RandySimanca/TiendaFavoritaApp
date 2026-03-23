@@ -10,7 +10,10 @@ import {
   dbDeleteHistorial,
   dbGetRetiros,
   dbInsertRetiro,
-  dbDeleteRetiro
+  dbDeleteRetiro,
+  dbGetIngresos,
+  dbInsertIngreso,
+  dbDeleteIngreso
 } from '../utils/database';
 import { supabase } from '../utils/supabase';
 
@@ -20,6 +23,8 @@ export interface DiaGuardado {
   cierre: number;
   retiro: number;
   notaRetiro?: string;
+  ingreso: number;
+  notaIngreso?: string;
   compras: number;
   facturas: { proveedor: string; resumen: string; total: number }[];
   gastos: { nombre: string; valor: number }[];
@@ -46,9 +51,18 @@ export interface Retiro {
   ts: number;
 }
 
+export interface Ingreso {
+  id?: number;
+  fecha: string;
+  valor: number;
+  nota?: string;
+  ts: number;
+}
+
 interface HistorialStore {
   historial: DiaGuardado[];
   retiros: Retiro[];
+  ingresos: Ingreso[];
   cargando: boolean;
 
   // Carga historial y retiros desde SQLite y Supabase
@@ -59,6 +73,8 @@ interface HistorialStore {
   eliminarDia: (fecha: string) => Promise<void>;
   // Elimina un retiro por ID real de la DB
   eliminarRetiro: (id: number) => Promise<void>;
+  // Elimina un ingreso por ID real de la DB
+  eliminarIngreso: (id: number) => Promise<void>;
   // Suscribirse a cambios en tiempo real
   suscribirCambios: () => void;
 }
@@ -66,20 +82,25 @@ interface HistorialStore {
 export const useHistorialStore = create<HistorialStore>((set, get) => ({
   historial: [],
   retiros: [],
+  ingresos: [],
   cargando: true,
 
   cargar: async () => {
     try {
       // 1. Cargar local (instantáneo)
-      const dataHist = await dbGetHistorial();
-      const dataRet  = await dbGetRetiros();
+      const dataHist   = await dbGetHistorial();
+      const dataRet    = await dbGetRetiros();
+      const dataIng    = await dbGetIngresos();
       
       const historial = dataHist.map(h => JSON.parse(h.datos_json));
       const retiros = dataRet.map(r => ({
         id: r.id, fecha: r.fecha, valor: r.valor, nota: r.nota, ts: r.timestamp
       }));
+      const ingresos = dataIng.map(i => ({
+        id: i.id, fecha: i.fecha, valor: i.valor, nota: i.nota, ts: i.timestamp
+      }));
 
-      set({ historial, retiros, cargando: false });
+      set({ historial, retiros, ingresos, cargando: false });
 
       // 2. Sincronizar en segundo plano (silencioso)
       (async () => {
@@ -97,6 +118,14 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
               id: r.id, fecha: r.fecha, valor: r.valor, nota: r.nota, ts: r.timestamp
             }));
             set({ retiros: rCloud });
+          }
+
+          const { data: cloudIng, error: errI } = await supabase.from('ingresos').select('*');
+          if (!errI && cloudIng && cloudIng.length > 0) {
+            const iCloud = cloudIng.map(i => ({
+              id: i.id, fecha: i.fecha, valor: i.valor, nota: i.nota, ts: i.timestamp
+            }));
+            set({ ingresos: iCloud });
           }
         } catch (e) {
           console.log('Sync historial cloud falló (offline):', e);
@@ -130,10 +159,22 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
           await dbDeleteRetiro(existe.id);
           supabase.from('retiros').delete().eq('id', existe.id).then();
         }
-        
         await dbInsertRetiro(estado.fecha, estado.retiro, estado.notaRetiro || '');
         supabase.from('retiros').insert({
           fecha: estado.fecha, valor: estado.retiro, nota: estado.notaRetiro || '', timestamp: Date.now()
+        }).then();
+      }
+
+      // Manejo de Ingresos
+      if (estado.ingreso && estado.ingreso > 0) {
+        const existe = get().ingresos.find(i => i.fecha === estado.fecha);
+        if (existe && existe.id !== undefined) {
+          await dbDeleteIngreso(existe.id);
+          supabase.from('ingresos').delete().eq('id', existe.id).then();
+        }
+        await dbInsertIngreso(estado.fecha, estado.ingreso, estado.notaIngreso || '');
+        supabase.from('ingresos').insert({
+          fecha: estado.fecha, valor: estado.ingreso, nota: estado.notaIngreso || '', timestamp: Date.now()
         }).then();
       }
       
@@ -159,14 +200,21 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
 
   eliminarRetiro: async (id) => {
     try {
-      // 1. Local
       await dbDeleteRetiro(id);
-      // 2. Cloud
       supabase.from('retiros').delete().eq('id', id).then();
-      
       await get().cargar();
     } catch (error) {
       console.error('Error eliminando retiro local:', error);
+    }
+  },
+
+  eliminarIngreso: async (id) => {
+    try {
+      await dbDeleteIngreso(id);
+      supabase.from('ingresos').delete().eq('id', id).then();
+      await get().cargar();
+    } catch (error) {
+      console.error('Error eliminando ingreso local:', error);
     }
   },
 
@@ -174,6 +222,7 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
     supabase.channel('historial-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'historial' }, () => get().cargar())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'retiros' }, () => get().cargar())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ingresos' }, () => get().cargar())
       .subscribe();
   }
 }));
