@@ -19,6 +19,7 @@ export interface EstadoDia {
   base: number;
   cierre: number;
   retiro: number;
+  notaRetiro: string;
   facturas: Factura[];
   gastos: FilaDato[];
   creditos: FilaDato[];

@@ -19,6 +19,7 @@ const estadoBlanco = (): EstadoDia => ({
   base: 0,
   cierre: 0,
   retiro: 0,
+  notaRetiro: '',
   facturas: [],
   gastos: [{ nombre: '', valor: 0 }],
   creditos: [{ nombre: '', valor: 0 }],
@@ -39,6 +40,7 @@ interface DiaStore extends EstadoDia {
   setBase: (v: number) => void;
   setCierre: (v: number) => void;
   setRetiro: (v: number) => void;
+  setNotaRetiro: (v: string) => void;
 
   // Facturas del día
   agregarFactura: (f: Factura) => void;
@@ -83,6 +85,7 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
   setBase:   (base)   => { set({ base });   get().calcular(); get().autoGuardar(); },
   setCierre: (cierre) => { set({ cierre }); get().calcular(); get().autoGuardar(); },
   setRetiro: (retiro) => { set({ retiro }); get().calcular(); get().autoGuardar(); },
+  setNotaRetiro: (notaRetiro) => { set({ notaRetiro }); get().autoGuardar(); },
 
   agregarFactura: (f) => {
     set(s => ({ facturas: [...s.facturas, f] }));
@@ -124,7 +127,7 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
   calcular: () => {
     const s = get();
     const resultado = calcularDia({
-      base: s.base, cierre: s.cierre, retiro: s.retiro,
+      base: s.base, cierre: s.cierre, retiro: s.retiro, notaRetiro: s.notaRetiro,
       facturas: s.facturas,
       gastos: s.gastos, creditos: s.creditos, pagos: s.pagos,
       transferenciaVentas: s.transferenciaVentas,
@@ -187,6 +190,7 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
       base:     d.base     || 0,
       cierre:   d.cierre   || 0,
       retiro:   d.retiro   || 0,
+      notaRetiro: d.notaRetiro || '',
       facturas: (d.facturas || []).map((f: any, i: number) => ({
         id: i + 1, thumb: '', proveedor: f.proveedor, resumen: f.resumen, total: f.total
       })),
@@ -251,6 +255,7 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
       base:     s.base,
       cierre:   s.cierre,
       retiro:   s.retiro,
+      notaRetiro: s.notaRetiro,
       compras:  s.facturas.reduce((acc, f) => acc + f.total, 0),
       facturas: s.facturas.map(f => ({ proveedor: f.proveedor, resumen: f.resumen, total: f.total })),
       gastos:              s.gastos,

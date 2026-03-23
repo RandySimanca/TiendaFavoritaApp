@@ -39,6 +39,7 @@ export async function inicializarDB() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       fecha TEXT NOT NULL,
       valor REAL DEFAULT 0,
+      nota TEXT,
       timestamp INTEGER
     );
 
@@ -48,6 +49,9 @@ export async function inicializarDB() {
       valor_json TEXT NOT NULL
     );
   `);
+
+  // Intentamos agregar la columna 'nota' en caso de que la tabla ya exista de versiones anteriores
+  await db.execAsync('ALTER TABLE retiros ADD COLUMN nota TEXT;').catch(() => null);
 }
 
 // ── UTILIDADES DE PRECIOS ──
@@ -111,15 +115,15 @@ export async function dbDeleteHistorial(fecha: string) {
 // ── UTILIDADES DE RETIROS ──
 
 export async function dbGetRetiros() {
-  return await db.getAllAsync<{id: number, fecha: string, valor: number, timestamp: number}>(
+  return await db.getAllAsync<{id: number, fecha: string, valor: number, nota: string, timestamp: number}>(
     'SELECT * FROM retiros ORDER BY timestamp DESC'
   );
 }
 
-export async function dbInsertRetiro(fecha: string, valor: number) {
+export async function dbInsertRetiro(fecha: string, valor: number, nota: string) {
   await db.runAsync(
-    'INSERT INTO retiros (fecha, valor, timestamp) VALUES (?, ?, ?)',
-    fecha, valor, Date.now()
+    'INSERT INTO retiros (fecha, valor, nota, timestamp) VALUES (?, ?, ?, ?)',
+    fecha, valor, nota, Date.now()
   );
 }
 
