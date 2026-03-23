@@ -62,8 +62,9 @@ export function calcularDia(estado: EstadoDia): ResultadoCuadre {
   const totalTv       = sumarFilas(transferenciaVentas);
   const totalTp       = sumarFilas(transferenciaPagos);
 
-  // Ventas efectivo = cierre - retiro - base + compras + gastos + creditos - pagos
-  const ventasEfectivo = cierre - retiro - base + compras + totalGastos + totalCreditos - totalPagos;
+  // Ventas efectivo = cierre - base + compras + gastos + creditos - pagos
+  // (El retiro no debe afectar el cálculo del total vendido de lo contado al cierre)
+  const ventasEfectivo = cierre - base + compras + totalGastos + totalCreditos - totalPagos;
 
   // Total = ventas efectivo + transferencias ventas + pagos deuda por transf (cuentan como venta)
   const total = ventasEfectivo + totalTv + totalTp;
