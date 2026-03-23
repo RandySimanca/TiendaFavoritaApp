@@ -53,7 +53,7 @@ export default function LoginScreen() {
 
           {/* Logo y título */}
           <Text style={estilos.logo}>🏪</Text>
-          <Text style={estilos.titulo}>Tienda Favorita</Text>
+          <Text style={estilos.titulo} numberOfLines={1} adjustsFontSizeToFit>Tienda Favorita</Text>
           <Text style={estilos.subtitulo}>Control Diario de Ventas</Text>
 
           {/* Caja de login con efecto vidrio */}

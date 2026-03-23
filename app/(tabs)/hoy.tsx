@@ -268,8 +268,8 @@ export default function HoyScreen() {
           <Text style={estilos.btnPerfilIcon}>👤</Text>
         </TouchableOpacity>
         
-        <View style={{ paddingHorizontal: 40, alignItems: 'center' }}>
-          <Text style={estilos.headerTitulo}>🏪 TIENDA FAVORITA</Text>
+        <View style={{ width: '100%', paddingHorizontal: 54, alignItems: 'center' }}>
+          <Text style={estilos.headerTitulo} numberOfLines={1} adjustsFontSizeToFit>🏪 TIENDA FAVORITA</Text>
           <Text style={estilos.headerSub}>Control Diario de Ventas</Text>
         </View>
 
@@ -572,7 +572,7 @@ const estilos = StyleSheet.create({
   },
   btnExportarIcon: { fontSize: 18 },
   btnPerfilIcon: { fontSize: 18 },
-  headerTitulo: { color: Colors.white, fontSize: 20, fontWeight: '900', textAlign: 'center' },
+  headerTitulo: { color: Colors.white, fontSize: 18, fontWeight: '900', textAlign: 'center' },
   headerSub:    { color: 'rgba(255,255,255,0.82)', fontSize: 12, marginTop: 2 },
   rolBadge: {
     backgroundColor: 'rgba(255,255,255,0.2)',
