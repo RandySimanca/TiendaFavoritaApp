@@ -26,6 +26,7 @@ interface AuthStore {
   cerrarSesion: () => Promise<void>;
   recuperarSesion: () => Promise<void>;
   actualizarPassword: (nuevaPass: string) => Promise<{ error: string | null }>;
+  actualizarPerfil: (nombre: string) => Promise<{ error: string | null }>;
   
   // Acciones Administrativas (Dueña)
   crearTrabajador: (email: string, pass: string, nombre: string) => Promise<{ error: string | null }>;
@@ -88,6 +89,36 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       if (error) throw error;
       return { error: null };
     } catch (error: any) {
+      return { error: error.message };
+    }
+  },
+  
+  actualizarPerfil: async (nombre: string) => {
+    try {
+      const user = get().user;
+      if (!user) throw new Error('No hay sesión activa');
+
+      const { error } = await supabase
+        .from('perfiles')
+        .update({ nombre })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Actualizar estado local
+      const nuevoPerfil = { ...get().perfil!, nombre };
+      set({ perfil: nuevoPerfil });
+
+      // Actualizar caché
+      const cache = await AsyncStorage.getItem(CACHE_KEY);
+      if (cache) {
+        const data = JSON.parse(cache);
+        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ ...data, perfil: nuevoPerfil }));
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      console.error("Error actualizando perfil:", error.message);
       return { error: error.message };
     }
   },

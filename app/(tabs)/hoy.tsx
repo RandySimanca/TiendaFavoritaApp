@@ -219,7 +219,10 @@ export default function HoyScreen() {
 
       {/* Modal para agregar compra manual (compatible con Android y Web) */}
       <Modal visible={modalCompra} transparent animationType="slide">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+          style={{ flex: 1 }}
+        >
           <View style={estilos.modalFondo}>
             <View style={estilos.modalCaja}>
               <Text style={estilos.modalTitulo}>🛒 Agregar compra</Text>
@@ -249,6 +252,8 @@ export default function HoyScreen() {
                   <Text style={{ color: Colors.white, fontWeight: '900' }}>Agregar</Text>
                 </TouchableOpacity>
               </View>
+              {/* Espacio extra para que el teclado no tape el botón en Android */}
+              <View style={{ height: Platform.OS === 'android' ? 20 : 0 }} />
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -262,17 +267,18 @@ export default function HoyScreen() {
         <TouchableOpacity style={estilos.btnPerfil} onPress={() => setPerfilVisible(true)}>
           <Text style={estilos.btnPerfilIcon}>👤</Text>
         </TouchableOpacity>
-        <Text style={estilos.headerTitulo}>🏪 TIENDA FAVORITA</Text>
-        <Text style={estilos.headerSub}>Control Diario de Ventas</Text>
+        
+        <View style={{ paddingHorizontal: 40, alignItems: 'center' }}>
+          <Text style={estilos.headerTitulo}>🏪 TIENDA FAVORITA</Text>
+          <Text style={estilos.headerSub}>Control Diario de Ventas</Text>
+        </View>
+
         <View style={estilos.rolBadge}>
           <Text style={estilos.rolTexto}>
             {perfil?.nombre ? `Hola, ${perfil.nombre}` : 
              (esAdmin ? '👑 Admin — acceso completo' : '👤 Trabajador — solo anotar')}
           </Text>
         </View>
-        <TouchableOpacity style={estilos.btnExportar} onPress={handleExportarPDF}>
-          <Text style={estilos.btnExportarIcon}>📄</Text>
-        </TouchableOpacity>
       </LinearGradient>
 
       <PerfilModal visible={perfilVisible} onClose={() => setPerfilVisible(false)} />
@@ -566,7 +572,7 @@ const estilos = StyleSheet.create({
   },
   btnExportarIcon: { fontSize: 18 },
   btnPerfilIcon: { fontSize: 18 },
-  headerTitulo: { color: Colors.white, fontSize: 20, fontWeight: '900' },
+  headerTitulo: { color: Colors.white, fontSize: 20, fontWeight: '900', textAlign: 'center' },
   headerSub:    { color: 'rgba(255,255,255,0.82)', fontSize: 12, marginTop: 2 },
   rolBadge: {
     backgroundColor: 'rgba(255,255,255,0.2)',

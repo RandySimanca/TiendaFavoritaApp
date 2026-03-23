@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, Modal, TouchableOpacity, 
-  TextInput, Alert, ActivityIndicator, ScrollView 
+  TextInput, Alert, ActivityIndicator, ScrollView,
+  KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useAuthStore } from '../../store/authStore';
 import { Colors } from '../../constants/Colors';
@@ -20,6 +21,10 @@ export const PerfilModal: React.FC<PerfilModalProps> = ({ visible, onClose }) =>
   const [nuevaPass, setNuevaPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [cargando, setCargando] = useState(false);
+
+  // Estado para edición de nombre propio
+  const [nuevoNombre, setNuevoNombre] = useState(perfil?.nombre || '');
+  const { actualizarPerfil } = useAuthStore();
 
   // Estados para creación de trabajador
   const [tEmail, setTEmail] = useState('');
@@ -71,119 +76,147 @@ export const PerfilModal: React.FC<PerfilModalProps> = ({ visible, onClose }) =>
     }
   };
 
+  const handleGuardarNombre = async () => {
+    if (!nuevoNombre.trim()) return;
+    setCargando(true);
+    const { error } = await actualizarPerfil(nuevoNombre.trim());
+    setCargando(false);
+    if (error) Alert.alert('Error', error);
+    else Alert.alert('Éxito', 'Nombre actualizado');
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={estilos.overlay}>
-        <View style={estilos.contenedor}>
-          
-          {/* Cabecera */}
-          <View style={estilos.header}>
-            <Text style={estilos.headerTitulo}>
-              {modo === 'info' ? 'Mi Perfil' : 
-               modo === 'password' ? 'Seguridad' : 'Gestión de Personal'}
-            </Text>
-            <TouchableOpacity onPress={onClose} style={estilos.btnClose}>
-              <Text style={estilos.btnCloseTexto}>×</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView contentContainerStyle={estilos.content}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <View style={estilos.overlay}>
+          <View style={estilos.contenedor}>
             
-            {modo === 'info' && (
-              <View>
-                <View style={estilos.infoBox}>
+            {/* Cabecera */}
+            <View style={estilos.header}>
+              <Text style={estilos.headerTitulo}>
+                {modo === 'info' ? 'Mi Perfil' : 
+                modo === 'password' ? 'Seguridad' : 'Gestión de Personal'}
+              </Text>
+              <TouchableOpacity onPress={onClose} style={estilos.btnClose}>
+                <Text style={estilos.btnCloseTexto}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={estilos.content} keyboardShouldPersistTaps="handled">
+              
+              {modo === 'info' && (
+                <View>
+                  <View style={estilos.infoBox}>
                   <Text style={estilos.emoji}>👤</Text>
-                  <Text style={estilos.nombre}>{perfil?.nombre || 'Sin nombre'}</Text>
+                  <TextInput
+                    style={estilos.nombreInput}
+                    value={nuevoNombre}
+                    onChangeText={setNuevoNombre}
+                    placeholder="Tu nombre..."
+                  />
+                  <TouchableOpacity 
+                    style={estilos.btnGuardarNombre} 
+                    onPress={handleGuardarNombre}
+                    disabled={cargando || nuevoNombre === perfil?.nombre}
+                  >
+                    <Text style={estilos.btnGuardarNombreTexto}>
+                      {cargando ? '...' : '💾 Guardar nombre'}
+                    </Text>
+                  </TouchableOpacity>
                   <Text style={estilos.rolTag}>{rol?.toUpperCase()}</Text>
                   <Text style={estilos.email}>{user?.email}</Text>
                 </View>
 
-                <TouchableOpacity style={estilos.opcion} onPress={() => setModo('password')}>
-                  <Text style={estilos.opcionTexto}>🔐 Cambiar mi contraseña</Text>
-                </TouchableOpacity>
-
-                {esAdmin() && (
-                  <TouchableOpacity style={estilos.opcion} onPress={() => setModo('admin')}>
-                    <Text style={estilos.opcionTexto}>👥 Registrar nuevo (Admin)</Text>
+                  <TouchableOpacity style={estilos.opcion} onPress={() => setModo('password')}>
+                    <Text style={estilos.opcionTexto}>🔐 Cambiar mi contraseña</Text>
                   </TouchableOpacity>
-                )}
 
-                <TouchableOpacity 
-                  style={[estilos.opcion, { marginTop: 20 }]} 
-                  onPress={() => {
-                    onClose();
-                    cerrarSesion();
-                  }}
-                >
-                  <Text style={[estilos.opcionTexto, { color: Colors.red }]}>🚪 Cerrar Sesión</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+                  {esAdmin() && (
+                    <TouchableOpacity style={estilos.opcion} onPress={() => setModo('admin')}>
+                      <Text style={estilos.opcionTexto}>👥 Registrar nuevo (Admin)</Text>
+                    </TouchableOpacity>
+                  )}
 
-            {modo === 'password' && (
-              <View>
-                <Text style={estilos.label}>Nueva contraseña (min 6 caracteres)</Text>
-                <TextInput
-                  style={estilos.input}
-                  secureTextEntry
-                  value={nuevaPass}
-                  onChangeText={setNuevaPass}
-                  placeholder="******"
-                />
-                <Text style={estilos.label}>Confirmar contraseña</Text>
-                <TextInput
-                  style={estilos.input}
-                  secureTextEntry
-                  value={confirmPass}
-                  onChangeText={setConfirmPass}
-                  placeholder="******"
-                />
-                <TouchableOpacity style={estilos.btnPrincipal} onPress={handleCambiarPass} disabled={cargando}>
-                  {cargando ? <ActivityIndicator color={Colors.white} /> : <Text style={estilos.btnTexto}>Guardar</Text>}
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setModo('info')} style={estilos.btnVolver}>
-                  <Text style={estilos.btnVolverTexto}>Volver</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+                  <TouchableOpacity 
+                    style={[estilos.opcion, { marginTop: 20 }]} 
+                    onPress={() => {
+                      onClose();
+                      cerrarSesion();
+                    }}
+                  >
+                    <Text style={[estilos.opcionTexto, { color: Colors.red }]}>🚪 Cerrar Sesión</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
-            {modo === 'admin' && (
-              <View>
-                <Text style={estilos.label}>Nombre completo</Text>
-                <TextInput
-                  style={estilos.input}
-                  value={tNombre}
-                  onChangeText={setTNombre}
-                  placeholder="Ej: Juan Pérez"
-                />
-                <Text style={estilos.label}>Correo Electrónico</Text>
-                <TextInput
-                  style={estilos.input}
-                  value={tEmail}
-                  onChangeText={setTEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  placeholder="trabajador@tienda.com"
-                />
-                <Text style={estilos.label}>Contraseña temporal</Text>
-                <TextInput
-                  style={estilos.input}
-                  value={tPass}
-                  onChangeText={setTPass}
-                  placeholder="******"
-                />
-                <TouchableOpacity style={estilos.btnPrincipal} onPress={handleCrearTrabajador} disabled={cargando}>
-                  {cargando ? <ActivityIndicator color={Colors.white} /> : <Text style={estilos.btnTexto}>Crear Usuario</Text>}
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setModo('info')} style={estilos.btnVolver}>
-                  <Text style={estilos.btnVolverTexto}>Cancelar</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              {modo === 'password' && (
+                <View>
+                  <Text style={estilos.label}>Nueva contraseña (min 6 caracteres)</Text>
+                  <TextInput
+                    style={estilos.input}
+                    secureTextEntry
+                    value={nuevaPass}
+                    onChangeText={setNuevaPass}
+                    placeholder="******"
+                  />
+                  <Text style={estilos.label}>Confirmar contraseña</Text>
+                  <TextInput
+                    style={estilos.input}
+                    secureTextEntry
+                    value={confirmPass}
+                    onChangeText={setConfirmPass}
+                    placeholder="******"
+                  />
+                  <TouchableOpacity style={estilos.btnPrincipal} onPress={handleCambiarPass} disabled={cargando}>
+                    {cargando ? <ActivityIndicator color={Colors.white} /> : <Text style={estilos.btnTexto}>Guardar</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setModo('info')} style={estilos.btnVolver}>
+                    <Text style={estilos.btnVolverTexto}>Volver</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
-          </ScrollView>
+              {modo === 'admin' && (
+                <View>
+                  <Text style={estilos.label}>Nombre completo</Text>
+                  <TextInput
+                    style={estilos.input}
+                    value={tNombre}
+                    onChangeText={setTNombre}
+                    placeholder="Ej: Juan Pérez"
+                  />
+                  <Text style={estilos.label}>Correo Electrónico</Text>
+                  <TextInput
+                    style={estilos.input}
+                    value={tEmail}
+                    onChangeText={setTEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    placeholder="trabajador@tienda.com"
+                  />
+                  <Text style={estilos.label}>Contraseña temporal</Text>
+                  <TextInput
+                    style={estilos.input}
+                    value={tPass}
+                    onChangeText={setTPass}
+                    placeholder="******"
+                  />
+                  <TouchableOpacity style={estilos.btnPrincipal} onPress={handleCrearTrabajador} disabled={cargando}>
+                    {cargando ? <ActivityIndicator color={Colors.white} /> : <Text style={estilos.btnTexto}>Crear Usuario</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setModo('info')} style={estilos.btnVolver}>
+                    <Text style={estilos.btnVolverTexto}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+            </ScrollView>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -300,6 +333,29 @@ const estilos = StyleSheet.create({
   btnVolverTexto: {
     color: Colors.gray,
     fontSize: 14,
+    fontWeight: '800',
+  },
+  nombreInput: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: Colors.dark,
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.border,
+    textAlign: 'center',
+    padding: 5,
+    minWidth: 200,
+  },
+  btnGuardarNombre: {
+    backgroundColor: Colors.greenLight,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 5,
+  },
+  btnGuardarNombreTexto: {
+    color: Colors.greenDark,
+    fontSize: 11,
     fontWeight: '800',
   }
 });
