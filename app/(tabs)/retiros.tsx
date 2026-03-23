@@ -76,7 +76,11 @@ export default function RetirosScreen() {
           <View key={i} style={estilos.item}>
             <View style={{ flex: 1 }}>
               <Text style={estilos.itemFecha}>💼 {fechaLegible(r.fecha)}</Text>
-              <Text style={estilos.itemSub}>Retiro para caja personal</Text>
+              {r.nota ? (
+                <Text style={estilos.itemNota}>📝 {r.nota}</Text>
+              ) : (
+                <Text style={estilos.itemSub}>Retiro para caja personal</Text>
+              )}
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={estilos.itemValor}>{fmt(r.valor)}</Text>
@@ -114,6 +118,7 @@ const estilos = StyleSheet.create({
   },
   itemFecha: { fontSize: 14, fontWeight: '900', color: Colors.dark },
   itemSub:   { fontSize: 11, color: Colors.gray, fontWeight: '700', marginTop: 2 },
+  itemNota:  { fontSize: 12, color: '#92400e', fontWeight: '700', marginTop: 2 },
   itemValor: { fontSize: 18, fontWeight: '900', color: Colors.green },
   btnDel: { backgroundColor: Colors.redLight, borderRadius: 8, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
 

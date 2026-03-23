@@ -79,6 +79,21 @@ export default function HistorialScreen() {
           <Text style={estilos.detTotalValor}>{fmt(Math.max(0, d.total || 0))}</Text>
         </View>
 
+        {/* Retiro del día (si hay) */}
+        {(d.retiro || 0) > 0 && (
+          <View style={[estilos.detTotalBox, { backgroundColor: '#fef3c7', marginTop: 4 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[estilos.detTotalLabel, { color: '#92400e' }]}>💼 Retiro del día:</Text>
+              {d.notaRetiro ? (
+                <Text style={{ fontSize: 11, color: '#a16207', fontWeight: '600', marginTop: 2 }}>
+                  📝 {d.notaRetiro}
+                </Text>
+              ) : null}
+            </View>
+            <Text style={[estilos.detTotalValor, { color: '#92400e' }]}>{fmt(d.retiro || 0)}</Text>
+          </View>
+        )}
+
         {/* Botón eliminar solo para el admin */}
         {esAdmin && (
           <TouchableOpacity

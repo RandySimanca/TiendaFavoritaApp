@@ -19,6 +19,7 @@ export interface DiaGuardado {
   base: number;
   cierre: number;
   retiro: number;
+  notaRetiro?: string;
   compras: number;
   facturas: { proveedor: string; resumen: string; total: number }[];
   gastos: { nombre: string; valor: number }[];
@@ -41,6 +42,7 @@ export interface Retiro {
   id?: number;
   fecha: string;
   valor: number;
+  nota?: string;
   ts: number;
 }
 
@@ -74,7 +76,7 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
       
       const historial = dataHist.map(h => JSON.parse(h.datos_json));
       const retiros = dataRet.map(r => ({
-        id: r.id, fecha: r.fecha, valor: r.valor, ts: r.timestamp
+        id: r.id, fecha: r.fecha, valor: r.valor, nota: r.nota, ts: r.timestamp
       }));
 
       set({ historial, retiros, cargando: false });
@@ -93,7 +95,7 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
 
           if (!errR && cloudRet) {
             const rCloud = cloudRet.map(r => ({
-              id: r.id, fecha: r.fecha, valor: r.valor, ts: r.timestamp
+              id: r.id, fecha: r.fecha, valor: r.valor, nota: r.nota, ts: r.timestamp
             }));
             set({ retiros: rCloud });
           }
@@ -130,9 +132,9 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
           supabase.from('retiros').delete().eq('id', existe.id).then();
         }
         
-        await dbInsertRetiro(estado.fecha, estado.retiro);
+        await dbInsertRetiro(estado.fecha, estado.retiro, estado.notaRetiro || '');
         supabase.from('retiros').insert({
-          fecha: estado.fecha, valor: estado.retiro, timestamp: Date.now()
+          fecha: estado.fecha, valor: estado.retiro, nota: estado.notaRetiro || '', timestamp: Date.now()
         }).then();
       }
       

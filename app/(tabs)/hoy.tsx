@@ -46,6 +46,8 @@ export default function HoyScreen() {
   const setBase            = useDiaStore(s => s.setBase);
   const setCierre          = useDiaStore(s => s.setCierre);
   const setRetiro          = useDiaStore(s => s.setRetiro);
+  const notaRetiro         = useDiaStore(s => s.notaRetiro);
+  const setNotaRetiro      = useDiaStore(s => s.setNotaRetiro);
   const agregarFactura     = useDiaStore(s => s.agregarFactura);
   const eliminarFactura    = useDiaStore(s => s.eliminarFactura);
   const agregarFila        = useDiaStore(s => s.agregarFila);
@@ -427,8 +429,16 @@ export default function HoyScreen() {
                   textAlign="right"
                 />
               </View>
+              <TextInput
+                style={[estilos.inputNotaRetiro]}
+                value={notaRetiro}
+                onChangeText={setNotaRetiro}
+                placeholder="📝 Nota del retiro (opcional)..."
+                placeholderTextColor={Colors.gray}
+                maxLength={100}
+              />
               <Text style={{ fontSize: 11, color: Colors.gray, fontWeight: '700' }}>
-                El retiro se resta de la plata en caja — solo visible para usted.
+                El retiro se registra por separado — solo visible para usted.
               </Text>
             </>
           )}
@@ -641,6 +651,17 @@ const estilos = StyleSheet.create({
     borderRadius: 9,
     padding: 10,
     marginBottom: 11,
+  },
+  inputNotaRetiro: {
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.dark,
+    backgroundColor: Colors.grayLight,
+    marginBottom: 8,
   },
   subLabel: {
     fontSize: 12,
