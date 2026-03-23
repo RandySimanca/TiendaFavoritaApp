@@ -43,6 +43,15 @@ export async function inicializarDB() {
       timestamp INTEGER
     );
 
+    -- Tabla para los ingresos de dinero a caja (del admin)
+    CREATE TABLE IF NOT EXISTS ingresos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fecha TEXT NOT NULL,
+      valor REAL DEFAULT 0,
+      nota TEXT,
+      timestamp INTEGER
+    );
+
     -- Tabla para el borrador del día actual (reemplaza AsyncStorage)
     CREATE TABLE IF NOT EXISTS borradores (
       clave TEXT PRIMARY KEY,
@@ -50,8 +59,9 @@ export async function inicializarDB() {
     );
   `);
 
-  // Intentamos agregar la columna 'nota' en caso de que la tabla ya exista de versiones anteriores
+  // Columnas added en versiones posteriores (no falla si ya existen)
   await db.execAsync('ALTER TABLE retiros ADD COLUMN nota TEXT;').catch(() => null);
+  await db.execAsync('ALTER TABLE ingresos ADD COLUMN nota TEXT;').catch(() => null);
 }
 
 // ── UTILIDADES DE PRECIOS ──
@@ -129,6 +139,25 @@ export async function dbInsertRetiro(fecha: string, valor: number, nota: string)
 
 export async function dbDeleteRetiro(id: number) {
   await db.runAsync('DELETE FROM retiros WHERE id = ?', id);
+}
+
+// ── UTILIDADES DE INGRESOS ──
+
+export async function dbGetIngresos() {
+  return await db.getAllAsync<{id: number, fecha: string, valor: number, nota: string, timestamp: number}>(
+    'SELECT * FROM ingresos ORDER BY timestamp DESC'
+  );
+}
+
+export async function dbInsertIngreso(fecha: string, valor: number, nota: string) {
+  await db.runAsync(
+    'INSERT INTO ingresos (fecha, valor, nota, timestamp) VALUES (?, ?, ?, ?)',
+    fecha, valor, nota, Date.now()
+  );
+}
+
+export async function dbDeleteIngreso(id: number) {
+  await db.runAsync('DELETE FROM ingresos WHERE id = ?', id);
 }
 
 // ── UTILIDADES DE BORRADORES ──

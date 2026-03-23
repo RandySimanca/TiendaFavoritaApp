@@ -20,6 +20,8 @@ const estadoBlanco = (): EstadoDia => ({
   cierre: 0,
   retiro: 0,
   notaRetiro: '',
+  ingreso: 0,
+  notaIngreso: '',
   facturas: [],
   gastos: [{ nombre: '', valor: 0 }],
   creditos: [{ nombre: '', valor: 0 }],
@@ -41,6 +43,8 @@ interface DiaStore extends EstadoDia {
   setCierre: (v: number) => void;
   setRetiro: (v: number) => void;
   setNotaRetiro: (v: string) => void;
+  setIngreso: (v: number) => void;
+  setNotaIngreso: (v: string) => void;
 
   // Facturas del día
   agregarFactura: (f: Factura) => void;
@@ -86,6 +90,8 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
   setCierre: (cierre) => { set({ cierre }); get().calcular(); get().autoGuardar(); },
   setRetiro: (retiro) => { set({ retiro }); get().calcular(); get().autoGuardar(); },
   setNotaRetiro: (notaRetiro) => { set({ notaRetiro }); get().autoGuardar(); },
+  setIngreso: (ingreso) => { set({ ingreso }); get().calcular(); get().autoGuardar(); },
+  setNotaIngreso: (notaIngreso) => { set({ notaIngreso }); get().autoGuardar(); },
 
   agregarFactura: (f) => {
     set(s => ({ facturas: [...s.facturas, f] }));
@@ -128,6 +134,7 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
     const s = get();
     const resultado = calcularDia({
       base: s.base, cierre: s.cierre, retiro: s.retiro, notaRetiro: s.notaRetiro,
+      ingreso: s.ingreso, notaIngreso: s.notaIngreso,
       facturas: s.facturas,
       gastos: s.gastos, creditos: s.creditos, pagos: s.pagos,
       transferenciaVentas: s.transferenciaVentas,
@@ -189,8 +196,10 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
       fecha:    d.fecha    || new Date().toISOString().slice(0, 10),
       base:     d.base     || 0,
       cierre:   d.cierre   || 0,
-      retiro:   d.retiro   || 0,
-      notaRetiro: d.notaRetiro || '',
+      retiro:      d.retiro      || 0,
+      notaRetiro:  d.notaRetiro  || '',
+      ingreso:     d.ingreso     || 0,
+      notaIngreso: d.notaIngreso || '',
       facturas: (d.facturas || []).map((f: any, i: number) => ({
         id: i + 1, thumb: '', proveedor: f.proveedor, resumen: f.resumen, total: f.total
       })),
@@ -254,8 +263,10 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
       fecha:    s.fecha,
       base:     s.base,
       cierre:   s.cierre,
-      retiro:   s.retiro,
-      notaRetiro: s.notaRetiro,
+      retiro:      s.retiro,
+      notaRetiro:  s.notaRetiro,
+      ingreso:     s.ingreso,
+      notaIngreso: s.notaIngreso,
       compras:  s.facturas.reduce((acc, f) => acc + f.total, 0),
       facturas: s.facturas.map(f => ({ proveedor: f.proveedor, resumen: f.resumen, total: f.total })),
       gastos:              s.gastos,

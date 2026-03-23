@@ -87,13 +87,12 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
           const { data: cloudHist, error: errH } = await supabase.from('historial').select('*');
           const { data: cloudRet,  error: errR } = await supabase.from('retiros').select('*');
 
-          if (!errH && cloudHist) {
+          if (!errH && cloudHist && cloudHist.length > 0) {
             const hCloud = cloudHist.map(h => h.datos_json);
             set({ historial: hCloud });
-            // TODO: Podríamos actualizar SQLite si hay discrepancias
           }
 
-          if (!errR && cloudRet) {
+          if (!errR && cloudRet && cloudRet.length > 0) {
             const rCloud = cloudRet.map(r => ({
               id: r.id, fecha: r.fecha, valor: r.valor, nota: r.nota, ts: r.timestamp
             }));

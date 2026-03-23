@@ -36,6 +36,7 @@ export default function HoyScreen() {
   const cierre             = useDiaStore(s => s.cierre);
   const retiro             = useDiaStore(s => s.retiro);
   const fecha              = useDiaStore(s => s.fecha);
+  const setFecha           = useDiaStore(s => s.setFecha);
   const facturas           = useDiaStore(s => s.facturas);
   const gastos             = useDiaStore(s => s.gastos);
   const creditos           = useDiaStore(s => s.creditos);
@@ -222,7 +223,7 @@ export default function HoyScreen() {
                 style={estilos.modalInput}
                 value={compraProveedor}
                 onChangeText={setCompraProveedor}
-                placeholder="Ej: Wilian Ocampo..."
+                placeholder="Ej: cliente..."
                 placeholderTextColor={Colors.gray}
                 autoFocus
               />
@@ -278,10 +279,24 @@ export default function HoyScreen() {
         keyboardShouldPersistTaps="handled"
       >
 
-        {/* Fecha del día */}
+        {/* Fecha del día — editable para registrar días anteriores */}
         <View style={estilos.fechaRow}>
           <Text style={estilos.fechaLabel}>📅 Fecha:</Text>
-          <Text style={estilos.fechaValor}>{fecha}</Text>
+          <TextInput
+            style={estilos.fechaInput}
+            value={fecha}
+            onChangeText={v => setFecha(v)}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={Colors.gray}
+            keyboardType="numeric"
+            maxLength={10}
+          />
+          <TouchableOpacity
+            style={estilos.fechaHoyBtn}
+            onPress={() => setFecha(new Date().toISOString().slice(0, 10))}
+          >
+            <Text style={estilos.fechaHoyTxt}>Hoy</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── PASO 1: Base al abrir ── */}
@@ -373,7 +388,7 @@ export default function HoyScreen() {
         */}
 
         {/* ── PASO 5: Pagos recibidos en efectivo ── */}
-        <CardSection icono="💵" titulo="PASO 5 — Pagos recibidos (efectivo)" color="purple">
+        <CardSection icono="💵" titulo="PASO 3 — Pagos recibidos (efectivo)" color="purple">
           <View style={[estilos.notaBox, { backgroundColor: Colors.purpleLight }]}>
             <Text style={{ color: Colors.purple, fontSize: 12, fontWeight: '700' }}>
               ⚠️ Clientes que pagan deuda en <Text style={{ fontWeight: '900' }}>efectivo</Text>. Entra a caja pero <Text style={{ fontWeight: '900' }}>NO es venta</Text>.
@@ -383,7 +398,7 @@ export default function HoyScreen() {
         </CardSection>
 
         {/* ── PASO 6: Transferencias ── */}
-        <CardSection icono="📲" titulo="PASO 6 — Transferencias" color="teal">
+        <CardSection icono="📲" titulo="PASO 4 — Transferencias" color="teal">
           <View style={[estilos.notaBox, { backgroundColor: Colors.tealLight }]}>
             <Text style={{ color: Colors.teal, fontSize: 12, fontWeight: '700' }}>
               📲 Dinero que llega al celular/cuenta — <Text style={{ fontWeight: '900' }}>NO entra a caja física</Text>.
@@ -400,7 +415,7 @@ export default function HoyScreen() {
         </CardSection>
 
         {/* ── PASO 7: Cierre + Retiro (solo dueña ve retiro) ── */}
-        <CardSection icono="🔒" titulo="PASO 7 — Plata al CERRAR" color="green">
+        <CardSection icono="🔒" titulo="PASO 5 — Plata al CERRAR" color="green">
           <View style={estilos.inputGroup}>
             <Text style={estilos.inputLabel}>Plata contada al cerrar:</Text>
             <Text style={estilos.prefijo}>$</Text>
@@ -542,15 +557,33 @@ const estilos = StyleSheet.create({
     marginBottom: 11,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 8,
     elevation: 2,
   },
-  fechaLabel: { fontWeight: '800', fontSize: 13, color: Colors.gray },
-  fechaValor: { flex: 1, fontSize: 14, fontWeight: '700', color: Colors.dark },
+  fechaLabel:  { fontWeight: '800', fontSize: 13, color: Colors.gray },
+  fechaInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.dark,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    backgroundColor: Colors.grayLight,
+  },
+  fechaHoyBtn: {
+    backgroundColor: Colors.green,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+  },
+  fechaHoyTxt: { color: Colors.white, fontSize: 12, fontWeight: '900' },
 
   // Inputs
   inputGroup: {

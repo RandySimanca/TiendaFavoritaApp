@@ -59,8 +59,8 @@ export default function HistorialScreen() {
     return (
       <View style={estilos.detalle}>
         {seccion('🛒 Compras', (d.facturas || []).map(f => ({ nombre: `${f.proveedor}: ${f.resumen}`, valor: f.total })))}
-        {seccion('📤 Gastos', d.gastos)}
-        {seccion('👥 Fiados', d.creditos)}
+        {/*seccion('📤 Gastos', d.gastos)*/}
+        {/*{seccion('👥 Fiados', d.creditos)}*/}
         {seccion('💵 Pagos efectivo recibidos', d.pagos)}
         {seccion('📲 Ventas por transferencia', d.transferenciaVentas)}
         {seccion('📲 Pagos deuda transferencia', d.transferenciaPagos)}

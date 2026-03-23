@@ -20,6 +20,8 @@ export interface EstadoDia {
   cierre: number;
   retiro: number;
   notaRetiro: string;
+  ingreso: number;
+  notaIngreso: string;
   facturas: Factura[];
   gastos: FilaDato[];
   creditos: FilaDato[];
@@ -54,7 +56,7 @@ export function fmt(n: number): string {
 // Cálculo principal del cuadre diario
 // Reproduce exactamente la función calcular() del HTML original
 export function calcularDia(estado: EstadoDia): ResultadoCuadre {
-  const { base, cierre, retiro, facturas, gastos, creditos, pagos, transferenciaVentas, transferenciaPagos } = estado;
+  const { base, cierre, retiro, notaRetiro, ingreso, notaIngreso, facturas, gastos, creditos, pagos, transferenciaVentas, transferenciaPagos } = estado;
 
   const compras  = facturas.reduce((s, f) => s + f.total, 0);
   const totalGastos   = sumarFilas(gastos);
@@ -63,12 +65,15 @@ export function calcularDia(estado: EstadoDia): ResultadoCuadre {
   const totalTv       = sumarFilas(transferenciaVentas);
   const totalTp       = sumarFilas(transferenciaPagos);
 
-  // Ventas efectivo = cierre - base + compras + gastos + creditos - pagos
-  // (El retiro no debe afectar el cálculo del total vendido de lo contado al cierre)
-  const ventasEfectivo = cierre - base + compras + totalGastos + totalCreditos - totalPagos;
+  // ventasEfectivo = cierre - base - ingreso + compras + gastos + creditos
+  // El ingreso es dinero del admin que entra a caja pero NO es venta (se trata como aumento de base).
+  // Los pagos en efectivo de clientes ya están en el cierre, no se restan.
+  const ventasEfectivo = cierre - base - ingreso + compras + totalGastos + totalCreditos;
 
-  // Total = ventas efectivo + transferencias ventas + pagos deuda por transf (cuentan como venta)
-  const total = ventasEfectivo + totalTv + totalTp;
+  // Total = solo ventas en efectivo.
+  // Las transferencias (totalTv, totalTp) NO se suman porque ese dinero está en el banco, no en la caja.
+  // Se mantienen en el resultado solo para mostrarse como referencia en el historial.
+  const total = ventasEfectivo;
 
   return {
     compras,
