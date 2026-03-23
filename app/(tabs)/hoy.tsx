@@ -360,15 +360,17 @@ export default function HoyScreen() {
           />
         </CardSection>
 
-        {/* ── PASO 3: Gastos del día ── */}
+        {/* ── PASO 3: Gastos del día (desactivado temporalmente) ──
         <CardSection icono="📤" titulo="PASO 3 — Gastos del día" color="orange">
           {renderFilas('gastos', 'Para qué fue...', Colors.orange)}
         </CardSection>
+        */}
 
-        {/* ── PASO 4: Créditos (fiados) ── */}
+        {/* ── PASO 4: Créditos/Fiados (desactivado temporalmente) ──
         <CardSection icono="👥" titulo="PASO 4 — Créditos (fiados)" color="blue">
           {renderFilas('creditos', 'Nombre cliente...', Colors.blue)}
         </CardSection>
+        */}
 
         {/* ── PASO 5: Pagos recibidos en efectivo ── */}
         <CardSection icono="💵" titulo="PASO 5 — Pagos recibidos (efectivo)" color="purple">
