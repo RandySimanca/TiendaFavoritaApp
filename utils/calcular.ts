@@ -53,6 +53,19 @@ export function fmt(n: number): string {
   return '$ ' + Math.round(n).toLocaleString('es-CO');
 }
 
+// Formatea un número como string con puntos de miles para INPUTS: 10000 -> "10.000"
+export function formatInput(n: number | string): string {
+  if (n === 0 || n === '0' || n === '') return '';
+  const val = typeof n === 'number' ? n : parseFloat(String(n).replace(/\./g, '')) || 0;
+  return Math.round(val).toLocaleString('es-CO');
+}
+
+// Limpia los puntos de un string para obtener el número: "10.000" -> 10000
+export function parseInput(s: string): number {
+  if (!s) return 0;
+  return parseFloat(s.replace(/\./g, '')) || 0;
+}
+
 // Cálculo principal del cuadre diario
 // Reproduce exactamente la función calcular() del HTML original
 export function calcularDia(estado: EstadoDia): ResultadoCuadre {

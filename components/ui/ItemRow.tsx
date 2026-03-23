@@ -6,14 +6,15 @@
 import React from 'react';
 import { View, TextInput, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/Colors';
+import { formatInput, parseInput } from '../../utils/calcular';
 
 interface Props {
   nombre: string;
-  valor: number | string;
+  valor: number;
   placeholderNombre: string;
   mostrarEliminar: boolean;
   onChangeNombre: (v: string) => void;
-  onChangeValor: (v: string) => void;
+  onChangeValor: (v: number) => void;
   onEliminar: () => void;
 }
 
@@ -29,11 +30,11 @@ export function ItemRow({ nombre, valor, placeholderNombre, mostrarEliminar, onC
         placeholderTextColor={Colors.gray}
       />
 
-      {/* Campo numérico: valor en pesos */}
+      {/* Campo numérico: valor en pesos con puntos de miles */}
       <TextInput
         style={estilos.inputNumero}
-        value={valor === 0 ? '' : String(valor)}
-        onChangeText={onChangeValor}
+        value={formatInput(valor)}
+        onChangeText={v => onChangeValor(parseInput(v))}
         keyboardType="numeric"
         placeholder="0"
         placeholderTextColor={Colors.gray}

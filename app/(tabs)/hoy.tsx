@@ -23,7 +23,7 @@ import { useDiaStore }   from '../../store/diaStore';
 import { useHistorialStore } from '../../store/historialStore';
 import { useAuthStore }  from '../../store/authStore';
 import { Colors }        from '../../constants/Colors';
-import { fmt }           from '../../utils/calcular';
+import { fmt, formatInput, parseInput } from '../../utils/calcular';
 import { PerfilModal }   from '../../components/modals/PerfilModal';
 import { PDFService }    from '../../utils/pdfService';
 
@@ -102,7 +102,7 @@ export default function HoyScreen() {
             placeholderNombre={placeholder}
             mostrarEliminar={esAdmin && filas.length > 1}
             onChangeNombre={v => actualizarFila(lista, idx, 'nombre', v)}
-            onChangeValor={v  => actualizarFila(lista, idx, 'valor', parseFloat(v) || 0)}
+            onChangeValor={v  => actualizarFila(lista, idx, 'valor', v)}
             onEliminar={() => eliminarFila(lista, idx)}
           />
         ))}
@@ -130,7 +130,7 @@ export default function HoyScreen() {
       id: Date.now(),
       proveedor: compraProveedor.trim(),
       resumen: '',
-      total: parseFloat(compraTotal) || 0,
+      total: parseInput(compraTotal),
     });
     vibrar();
     setCompraProveedor('');
@@ -195,7 +195,8 @@ export default function HoyScreen() {
           text: 'Sí, guardar y limpiar',
           onPress: async () => {
             await handleGuardar();
-            await limpiar();
+            const nuevaBase = (useDiaStore.getState().cierre || 0) - (useDiaStore.getState().retiro || 0);
+            await limpiar(nuevaBase);
           },
         },
       ]
@@ -235,7 +236,7 @@ export default function HoyScreen() {
               <TextInput
                 style={estilos.modalInput}
                 value={compraTotal}
-                onChangeText={setCompraTotal}
+                onChangeText={v => setCompraTotal(formatInput(v))}
                 keyboardType="numeric"
                 placeholder="0"
                 placeholderTextColor={Colors.gray}
@@ -310,8 +311,8 @@ export default function HoyScreen() {
             <Text style={estilos.prefijo}>$</Text>
             <TextInput
               style={estilos.inputNumerico}
-              value={base === 0 ? '' : String(base)}
-              onChangeText={v => setBase(parseFloat(v) || 0)}
+              value={formatInput(base)}
+              onChangeText={v => setBase(parseInput(v))}
               keyboardType="numeric"
               placeholder="0"
               placeholderTextColor={Colors.gray}
@@ -425,8 +426,8 @@ export default function HoyScreen() {
             <Text style={estilos.prefijo}>$</Text>
             <TextInput
               style={estilos.inputNumerico}
-              value={cierre === 0 ? '' : String(cierre)}
-              onChangeText={v => setCierre(parseFloat(v) || 0)}
+              value={formatInput(cierre)}
+              onChangeText={v => setCierre(parseInput(v))}
               keyboardType="numeric"
               placeholder="0"
               placeholderTextColor={Colors.gray}
@@ -442,8 +443,8 @@ export default function HoyScreen() {
                 <Text style={estilos.prefijo}>$</Text>
                 <TextInput
                   style={estilos.inputNumerico}
-                  value={retiro === 0 ? '' : String(retiro)}
-                  onChangeText={v => setRetiro(parseFloat(v) || 0)}
+                  value={formatInput(retiro)}
+                  onChangeText={v => setRetiro(parseInput(v))}
                   keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor={Colors.gray}
@@ -469,8 +470,8 @@ export default function HoyScreen() {
                 <Text style={estilos.prefijo}>$</Text>
                 <TextInput
                   style={estilos.inputNumerico}
-                  value={ingreso === 0 ? '' : String(ingreso)}
-                  onChangeText={v => setIngreso(parseFloat(v) || 0)}
+                  value={formatInput(ingreso)}
+                  onChangeText={v => setIngreso(parseInput(v))}
                   keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor={Colors.gray}

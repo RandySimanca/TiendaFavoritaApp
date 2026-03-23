@@ -62,8 +62,8 @@ interface DiaStore extends EstadoDia {
   autoGuardar: () => Promise<void>;
   // Carga el borrador guardado al abrir la app
   cargarDiaActual: () => Promise<void>;
-  // Limpia el formulario para un nuevo día
-  limpiar: () => void;
+  // Limpia el formulario para un nuevo día (opcionalmente hereda base)
+  limpiar: (nuevaBase?: number) => Promise<void>;
   // Captura el estado completo para guardar en historial
   capturarEstado: () => any;
   // Suscribirse a cambios en tiempo real
@@ -212,8 +212,13 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
     get().calcular();
   },
 
-  limpiar: async () => {
-    set({ fecha: new Date().toISOString().slice(0, 10), ...estadoBlanco(), resultado: null });
+  limpiar: async (nuevaBase?: number) => {
+    set({ 
+      fecha: new Date().toISOString().slice(0, 10), 
+      ...estadoBlanco(), 
+      base: nuevaBase ?? 0,
+      resultado: null 
+    });
     try { 
       // Local primero
       await dbDeleteBorrador(CLAVE_DIA); 

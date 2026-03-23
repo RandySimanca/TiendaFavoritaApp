@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { usePreciosStore } from '../../store/preciosStore';
 import { useAuthStore } from '../../store/authStore';
-import { fmt } from '../../utils/calcular';
+import { fmt, formatInput, parseInput } from '../../utils/calcular';
 import { Colors } from '../../constants/Colors';
 import { PDFService } from '../../utils/pdfService';
 import { Precio } from '../../store/preciosStore';
@@ -201,8 +201,8 @@ export default function PreciosScreen() {
               <Text style={estilos.formLabel}>Precio de compra ($):</Text>
               <TextInput
                 style={estilos.formInput}
-                value={form.compra === 0 ? '' : String(form.compra)}
-                onChangeText={v => setForm({ ...form, compra: parseFloat(v) || 0 })}
+                value={formatInput(form.compra)}
+                onChangeText={v => setForm({ ...form, compra: parseInput(v) })}
                 keyboardType="numeric"
                 placeholder="0"
                 placeholderTextColor={Colors.gray}
@@ -219,8 +219,8 @@ export default function PreciosScreen() {
               <Text style={estilos.formLabel}>Precio de venta ($):</Text>
               <TextInput
                 style={estilos.formInput}
-                value={form.venta === 0 ? '' : String(form.venta)}
-                onChangeText={v => setForm({ ...form, venta: parseFloat(v) || 0 })}
+                value={formatInput(form.venta)}
+                onChangeText={v => setForm({ ...form, venta: parseInput(v) })}
                 keyboardType="numeric"
                 placeholder="0"
                 placeholderTextColor={Colors.gray}
