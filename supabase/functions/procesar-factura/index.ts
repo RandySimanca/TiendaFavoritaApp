@@ -28,10 +28,11 @@ serve(async (req: Request) => {
     const base64Data = image_url.includes(",") ? image_url.split(",")[1] : image_url
 
     if (geminiKey) {
-      console.log("Invocando Gemini 1.5 Flash via SDK...");
+      console.log("Invocando Gemini 1.5 Flash via SDK (v1 stable)...");
       
       const genAI = new GoogleGenerativeAI(geminiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      // Forzamos v1 para evitar el 404 de v1beta
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1" });
 
       const result = await model.generateContent([
         { text: "Analiza esta factura y devuelve SOLO un JSON: { \"proveedor\": \"string\", \"resumen\": \"string\", \"total\": number }. Si no ves el total, usa 0." },
