@@ -73,15 +73,14 @@ export default function RootLayout() {
   useEffect(() => {
     if (cargando || !dbListo) return;
 
-    const enTabs = segments[0] === '(tabs)';
-    const enLogin = segments[0] === 'login';
+    const enDrawer = segments[0] === '(drawer)';
+    const enLogin  = segments[0] === 'login';
 
     if (rol && enLogin) {
       // Tiene sesión pero está en login -> ir a hoy
       router.replace('/(drawer)/hoy');
-    } else if (!rol && enTabs) {
+    } else if (!rol && enDrawer) {
       // No tiene sesión pero está dentro de la app -> ir a login
-      // Usamos un pequeño delay para evitar conflictos de renderizado en Android
       const timer = setTimeout(() => {
         router.replace('/login');
       }, 50);
