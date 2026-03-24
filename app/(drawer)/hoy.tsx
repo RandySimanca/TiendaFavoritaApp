@@ -239,17 +239,25 @@ export default function HoyScreen() {
             />
           </View>
           {esAdmin && (
-            <View style={estilos.inputGroup}>
-              <Text style={estilos.inputLabel}>Otros ingresos (base):</Text>
-              <Text style={estilos.prefijo}>$</Text>
+            <>
+              <View style={estilos.inputGroup}>
+                <Text style={estilos.inputLabel}>Otros ingresos (base):</Text>
+                <Text style={estilos.prefijo}>$</Text>
+                <TextInput 
+                  style={estilos.inputNumerico} 
+                  value={formatInput(ingreso)} 
+                  onChangeText={v => setIngreso(parseInput(v))} 
+                  keyboardType="numeric" 
+                  textAlign="right" 
+                />
+              </View>
               <TextInput 
-                style={estilos.inputNumerico} 
-                value={formatInput(ingreso)} 
-                onChangeText={v => setIngreso(parseInput(v))} 
-                keyboardType="numeric" 
-                textAlign="right" 
+                style={estilos.inputNotaRetiro} 
+                placeholder="Nota del ingreso (por qué entró plata)..." 
+                value={notaIngreso} 
+                onChangeText={v => useDiaStore.setState({ notaIngreso: v })} 
               />
-            </View>
+            </>
           )}
         </CardSection>
 
@@ -292,13 +300,13 @@ export default function HoyScreen() {
           <TotalBox label="Total compras:" valor={facturas.reduce((s, f) => s + f.total, 0)} color="blue" />
         </CardSection>
 
-        <CardSection icono="📤" titulo="PASO 3 — Gastos del día" color="orange">
+       {/*<CardSection icono="📤" titulo="PASO 3 — Gastos del día" color="orange">
           {renderFilas('gastos', 'Para qué fue...', Colors.orange)}
         </CardSection>
 
         <CardSection icono="👥" titulo="PASO 4 — Créditos (fiados)" color="blue">
           {renderFilas('creditos', 'Nombre cliente...', Colors.blue)}
-        </CardSection>
+        </CardSection> */}
 
         <CardSection icono="💵" titulo="PASO 5 — Pagos recibidos (efectivo)" color="purple">
           <View style={estilos.notaCont}>
