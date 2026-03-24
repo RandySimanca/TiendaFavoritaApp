@@ -308,14 +308,14 @@ export default function HoyScreen() {
           {renderFilas('creditos', 'Nombre cliente...', Colors.blue)}
         </CardSection> */}
 
-        <CardSection icono="💵" titulo="PASO 5 — Pagos recibidos (efectivo)" color="purple">
+        <CardSection icono="💵" titulo="PASO 3 — Pagos recibidos (efectivo)" color="purple">
           <View style={estilos.notaCont}>
             <Text style={estilos.notaTexto}>⚠️ Clientes que pagan deuda en EFECTIVO. Entra a caja pero NO es venta.</Text>
           </View>
           {renderFilas('pagos', 'Nombre cliente...', Colors.purple)}
         </CardSection>
 
-        <CardSection icono="📲" titulo="PASO 6 — Transferencias" color="teal">
+        <CardSection icono="📲" titulo="PASO 4 — Transferencias" color="teal">
           <View style={estilos.notaContTeal}>
             <Text style={estilos.notaTextoTeal}>📲 Dinero que llega al celular/cuenta — NO entra a caja física.</Text>
           </View>
@@ -329,7 +329,7 @@ export default function HoyScreen() {
           {renderFilas('transferenciaPagos', 'Nombre cliente...', Colors.teal)}
         </CardSection>
 
-        <CardSection icono="🔒" titulo="PASO 7 — Plata al CERRAR" color="green">
+        <CardSection icono="🔒" titulo="PASO 5 — Plata al CERRAR" color="green">
           <View style={estilos.inputGroup}>
             <Text style={estilos.inputLabel}>Plata contada al cerrar:</Text>
             <Text style={estilos.prefijo}>$</Text>
