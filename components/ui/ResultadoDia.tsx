@@ -52,7 +52,7 @@ export function ResultadoDia({ base, cierre, retiro, resultado, esDuena }: Props
       {/* Desglose del cálculo */}
       <Linea etiqueta="Plata al cerrar:"     valor={fmt(cierre)} />
       {esDuena && retiro > 0 && (
-        <Linea etiqueta="💼 (−) Retiro del día:" valor={fmt(retiro)} />
+        <Linea etiqueta="💼 (+) Retiro del día:" valor={fmt(retiro)} />
       )}
       <Linea etiqueta="(−) Plata al abrir:"  valor={fmt(base)} />
       <Linea etiqueta="(+) Compras pagadas:" valor={fmt(resultado.compras)} />

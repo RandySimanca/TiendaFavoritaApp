@@ -78,10 +78,10 @@ export function calcularDia(estado: EstadoDia): ResultadoCuadre {
   const totalTv       = sumarFilas(transferenciaVentas);
   const totalTp       = sumarFilas(transferenciaPagos);
 
-  // ventasEfectivo = cierre - base - ingreso + compras + gastos + creditos
-  // El ingreso es dinero del admin que entra a caja pero NO es venta (se trata como aumento de base).
-  // Los pagos en efectivo de clientes ya están en el cierre, no se restan.
-  const ventasEfectivo = cierre - base - ingreso + compras + totalGastos + totalCreditos;
+  // ventasEfectivo = (cierre + retiro) - base - ingreso + compras + gastos + creditos - pagos
+  // Se suma 'retiro' porque es dinero que salió de la venta pero ya no está en el 'cierre'.
+  // Se resta 'pagos' porque es dinero que entró a caja pero NO es venta de hoy (es cobro de deuda).
+  const ventasEfectivo = (cierre + retiro) - base - ingreso + compras + totalGastos + totalCreditos - totalPagos;
 
   // Total = solo ventas en efectivo.
   // Las transferencias (totalTv, totalTp) NO se suman porque ese dinero está en el banco, no en la caja.
