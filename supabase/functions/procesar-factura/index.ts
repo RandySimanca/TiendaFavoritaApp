@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.14.0"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,28 +27,37 @@ serve(async (req: Request) => {
     const base64Data = image_url.includes(",") ? image_url.split(",")[1] : image_url
 
     if (geminiKey) {
-      console.log("Invocando Gemini 1.5 Flash (latest) via SDK (v1 stable)...");
+      console.log("Usando fetch directo a Gemini v1beta...");
       
-      const genAI = new GoogleGenerativeAI(geminiKey);
-      // Probamos con gemini-1.5-flash-latest por si es un tema de alias regional
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" }, { apiVersion: "v1" });
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: "Analiza esta factura y devuelve SOLO un JSON: { \"proveedor\": \"string\", \"resumen\": \"string\", \"total\": number }. Si no ves el total, usa 0." },
+              {
+                inline_data: {
+                  mime_type: "image/jpeg",
+                  data: base64Data
+                }
+              }
+            ]
+          }]
+        })
+      });
 
-      const result = await model.generateContent([
-        { text: "Analiza esta factura y devuelve SOLO un JSON: { \"proveedor\": \"string\", \"resumen\": \"string\", \"total\": number }. Si no ves el total, usa 0." },
-        {
-          inlineData: {
-            data: base64Data,
-            mimeType: "image/jpeg"
-          }
-        }
-      ]);
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(`Gemini Error: ${result.error.message}`);
+      }
 
-      const response = await result.response;
-      const text = response.text();
-      console.log("Respuesta Gemini:", text);
+      const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      console.log("Respuesta Gemini bruta:", text);
       
       const match = text.match(/\{[\s\S]*\}/)
-      if (!match) throw new Error("No se pudo extraer JSON de la respuesta de Gemini");
+      if (!match) throw new Error("No se pudo extraer JSON de la respuesta de Gemini. Respuesta recibida: " + text);
       
       const data = JSON.parse(match[0]);
       return new Response(JSON.stringify(data), {
@@ -58,8 +66,8 @@ serve(async (req: Request) => {
       });
 
     } else if (anthropicKey) {
-      // (Código Claude comentado anteriormente...)
-      return new Response(JSON.stringify({ error: "Claude está deshabilitado temporalmente. Usa GEMINI_API_KEY." }), { 
+      // (Código Claude oculto por defecto...)
+      return new Response(JSON.stringify({ error: "Claude deshabilitado. Configura GEMINI_API_KEY." }), { 
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     } else {
@@ -69,7 +77,7 @@ serve(async (req: Request) => {
     }
 
   } catch (err: any) {
-    console.error("Error:", err.message);
+    console.error("Error Crítico:", err.message);
     return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
