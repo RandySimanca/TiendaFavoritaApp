@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useHistorialStore } from '../../store/historialStore';
 import { Colors } from '../../constants/Colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { formatCurrency } from '../../utils/format';
 
 export default function PromedioScreen() {
   const historial = useHistorialStore(s => s.historial);
@@ -12,10 +13,6 @@ export default function PromedioScreen() {
   const diasConVentas = historial.filter(dia => (dia.total || 0) > 0).length;
   const promedioDiario = diasConVentas > 0 ? totalVentas / diasConVentas : 0;
 
-  // Formatear moneda
-  const fmt = (v: number) => 
-    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
-
   return (
     <ScrollView style={styles.container}>
       <View style={styles.card}>
@@ -23,14 +20,14 @@ export default function PromedioScreen() {
           <MaterialCommunityIcons name="trending-up" size={40} color={Colors.green} />
         </View>
         <Text style={styles.label}>Promedio de Ventas Diarias</Text>
-        <Text style={styles.value}>{fmt(promedioDiario)}</Text>
+        <Text style={styles.value}>{formatCurrency(promedioDiario)}</Text>
         <Text style={styles.subtitle}>Basado en {diasConVentas} días registrados</Text>
       </View>
 
       <View style={styles.statsContainer}>
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Total Registrado</Text>
-          <Text style={styles.statValue}>{fmt(totalVentas)}</Text>
+          <Text style={styles.statValue}>{formatCurrency(totalVentas)}</Text>
         </View>
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Días Operados</Text>
