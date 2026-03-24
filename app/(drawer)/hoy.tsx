@@ -226,31 +226,65 @@ export default function HoyScreen() {
           </TouchableOpacity>
         </View>
 
-        <CardSection icono="money" titulo="PASO 1 - Base Caja" color="green">
+        <CardSection icono="💰" titulo="PASO 1 — Plata al ABRIR" color="green">
           <View style={estilos.inputGroup}>
-            <Text style={estilos.inputLabel}>Base:</Text>
-            <TextInput style={estilos.inputNumerico} value={formatInput(base)} onChangeText={v => setBase(parseInput(v))} keyboardType="numeric" textAlign="right" />
+            <Text style={estilos.inputLabel}>Base con la que abrió:</Text>
+            <Text style={estilos.prefijo}>$</Text>
+            <TextInput 
+              style={estilos.inputNumerico} 
+              value={formatInput(base)} 
+              onChangeText={v => setBase(parseInput(v))} 
+              keyboardType="numeric" 
+              textAlign="right" 
+            />
           </View>
+          {esAdmin && (
+            <View style={estilos.inputGroup}>
+              <Text style={estilos.inputLabel}>Otros ingresos (base):</Text>
+              <Text style={estilos.prefijo}>$</Text>
+              <TextInput 
+                style={estilos.inputNumerico} 
+                value={formatInput(ingreso)} 
+                onChangeText={v => setIngreso(parseInput(v))} 
+                keyboardType="numeric" 
+                textAlign="right" 
+              />
+            </View>
+          )}
         </CardSection>
 
-        <CardSection icono="cart" titulo="PASO 2 - Compras" color="blue">
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-            <TouchableOpacity style={[estilos.btnAccionCompra, { backgroundColor: Colors.blue }]} onPress={handleTomarFoto} disabled={guardandoStore}>
-              {guardandoStore ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={estilos.btnAccionCompraTexto}>Camara IA</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity style={[estilos.btnAccionCompra, { backgroundColor: Colors.grayLight, borderWidth: 1, borderColor: Colors.border }]} onPress={() => setModalCompra(true)}>
-              <Text style={[estilos.btnAccionCompraTexto, { color: Colors.dark }]}>Manual</Text>
-            </TouchableOpacity>
-          </View>
+        <CardSection icono="🛒" titulo="PASO 2 — Compras del día" color="blue" badge={facturas.length}>
+          <TouchableOpacity style={estilos.fotoBtn} onPress={handleTomarFoto} disabled={guardandoStore}>
+            {guardandoStore ? (
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <ActivityIndicator color={Colors.white} size="small" />
+                <Text style={estilos.fotoBtnTexto}>La IA está leyendo...</Text>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Text style={{ fontSize: 22 }}>📷</Text>
+                <Text style={estilos.fotoBtnTexto}>Tomar foto de factura</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[estilos.btnManual, { marginBottom: 12 }]} 
+            onPress={() => setModalCompra(true)}
+          >
+            <Text style={estilos.btnManualTexto}>✍️ Ingreso manual</Text>
+          </TouchableOpacity>
+
           {facturas.map(f => (
             <View key={f.id} style={estilos.facturaItem}>
               <View style={{ flex: 1 }}>
-                <Text>{f.proveedor}</Text>
+                <Text style={estilos.factProv}>🏭 {f.proveedor}</Text>
+                <Text style={estilos.factResumen} numberOfLines={1}>{f.resumen}</Text>
                 <Text style={estilos.factValor}>{fmt(f.total)}</Text>
               </View>
               {esAdmin && (
                 <TouchableOpacity style={estilos.btnEliminar} onPress={() => eliminarFactura(f.id)}>
-                  <Text style={{ color: Colors.red, fontSize: 18 }}>×</Text>
+                  <Text style={{ color: Colors.red, fontSize: 18, fontWeight: '800' }}>×</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -258,35 +292,69 @@ export default function HoyScreen() {
           <TotalBox label="Total compras:" valor={facturas.reduce((s, f) => s + f.total, 0)} color="blue" />
         </CardSection>
 
-        <CardSection icono="cash" titulo="PASO 3 - Pagos Efectivo" color="purple">
-           {renderFilas('pagos', 'Factura de...', 'purple')}
+        <CardSection icono="📤" titulo="PASO 3 — Gastos del día" color="orange">
+          {renderFilas('gastos', 'Para qué fue...', Colors.orange)}
         </CardSection>
 
-        <CardSection icono="out" titulo="PASO 4 — Retiro" color="orange">
-          <View style={estilos.inputGroup}>
-            <Text style={estilos.inputLabel}>Retiro:</Text>
-            <TextInput style={estilos.inputNumerico} value={formatInput(retiro)} onChangeText={v => setRetiro(parseInput(v))} keyboardType="numeric" textAlign="right" />
+        <CardSection icono="👥" titulo="PASO 4 — Créditos (fiados)" color="blue">
+          {renderFilas('creditos', 'Nombre cliente...', Colors.blue)}
+        </CardSection>
+
+        <CardSection icono="💵" titulo="PASO 5 — Pagos recibidos (efectivo)" color="purple">
+          <View style={estilos.notaCont}>
+            <Text style={estilos.notaTexto}>⚠️ Clientes que pagan deuda en EFECTIVO. Entra a caja pero NO es venta.</Text>
           </View>
-          <TextInput style={estilos.inputNotaRetiro} placeholder="Nota..." value={notaRetiro} onChangeText={v => useDiaStore.setState({ notaRetiro: v })} />
+          {renderFilas('pagos', 'Nombre cliente...', Colors.purple)}
         </CardSection>
 
-        <CardSection icono="bank" titulo="PASO 5 - Otros Ingresos" color="orange">
-          <View style={estilos.inputGroup}>
-            <Text style={estilos.inputLabel}>Ingreso:</Text>
-            <TextInput style={estilos.inputNumerico} value={formatInput(ingreso)} onChangeText={v => setIngreso(parseInput(v))} keyboardType="numeric" textAlign="right" />
+        <CardSection icono="📲" titulo="PASO 6 — Transferencias" color="teal">
+          <View style={estilos.notaContTeal}>
+            <Text style={estilos.notaTextoTeal}>📲 Dinero que llega al celular/cuenta — NO entra a caja física.</Text>
           </View>
-          <TextInput style={estilos.inputNotaRetiro} placeholder="Nota..." value={notaIngreso} onChangeText={v => useDiaStore.setState({ notaIngreso: v })} />
+          
+          <Text style={estilos.subSeccion}>VENTAS por transferencia:</Text>
+          {renderFilas('transferenciaVentas', 'Cliente / producto...', Colors.teal)}
+
+          <View style={{ height: 20 }} />
+
+          <Text style={estilos.subSeccion}>PAGOS de deuda por transferencia:</Text>
+          {renderFilas('transferenciaPagos', 'Nombre cliente...', Colors.teal)}
         </CardSection>
 
-        <CardSection icono="phone" titulo="PASO 6 - Ventas Transf." color="teal">
-           {renderFilas('transferenciaVentas', 'App...', Colors.teal)}
-        </CardSection>
-
-        <CardSection icono="check" titulo="PASO FINAL - Cierre" color="green">
+        <CardSection icono="🔒" titulo="PASO 7 — Plata al CERRAR" color="green">
           <View style={estilos.inputGroup}>
-            <Text style={estilos.inputLabel}>REAL EN CAJA:</Text>
-            <TextInput style={[estilos.inputNumerico, { borderColor: Colors.green, borderWidth: 3 }]} value={formatInput(cierre)} onChangeText={v => setCierre(parseInput(v))} keyboardType="numeric" textAlign="right" />
+            <Text style={estilos.inputLabel}>Plata contada al cerrar:</Text>
+            <Text style={estilos.prefijo}>$</Text>
+            <TextInput 
+              style={[estilos.inputNumerico, { borderColor: Colors.green, borderWidth: 3 }]} 
+              value={formatInput(cierre)} 
+              onChangeText={v => setCierre(parseInput(v))} 
+              keyboardType="numeric" 
+              textAlign="right" 
+            />
           </View>
+          {esAdmin && (
+            <>
+              <View style={estilos.inputGroup}>
+                <Text style={estilos.inputLabel}>💼 Retiro del día (personal):</Text>
+                <Text style={estilos.prefijo}>$</Text>
+                <TextInput 
+                  style={estilos.inputNumerico} 
+                  value={formatInput(retiro)} 
+                  onChangeText={v => setRetiro(parseInput(v))} 
+                  keyboardType="numeric" 
+                  textAlign="right" 
+                />
+              </View>
+              <TextInput 
+                style={estilos.inputNotaRetiro} 
+                placeholder="Nota del retiro..." 
+                value={notaRetiro} 
+                onChangeText={v => useDiaStore.setState({ notaRetiro: v })} 
+              />
+              <Text style={estilos.ayudaTexto}>El retiro se resta de la plata en caja — solo visible para usted.</Text>
+            </>
+          )}
         </CardSection>
 
         {resultado && <ResultadoDia base={base} cierre={cierre} retiro={retiro} resultado={resultado} esDuena={esAdmin} />}
@@ -320,14 +388,12 @@ const estilos = StyleSheet.create({
   fechaInput: { flex: 1, fontSize: 14, fontWeight: '700', color: Colors.dark, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 9, backgroundColor: Colors.grayLight },
   fechaHoyBtn: { backgroundColor: Colors.green, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 11 },
   fechaHoyTxt: { color: Colors.white, fontSize: 12, fontWeight: '900' },
+  // Estilos Base Requeridos
   inputGroup: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 9 },
-  inputLabel:   { flex: 1, fontSize: 13, fontWeight: '700', color: Colors.gray },
-  prefijo:      { fontWeight: '900', fontSize: 15, color: '#94a3b8' },
+  inputLabel: { flex: 1, fontSize: 13, fontWeight: '700', color: Colors.gray },
+  prefijo: { fontWeight: '900', fontSize: 15, color: '#94a3b8' },
   inputNumerico: { width: 145, borderWidth: 2, borderColor: Colors.border, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 11, fontSize: 16, fontWeight: '800', textAlign: 'right', color: Colors.dark, backgroundColor: Colors.grayLight },
   facturaItem: { flexDirection: 'row', gap: 9, backgroundColor: Colors.blueLight, borderWidth: 1.5, borderColor: '#bfdbfe', borderRadius: 12, padding: 10, marginBottom: 8, alignItems: 'flex-start' },
-  btnAccionCompra: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center', elevation: 2 },
-  btnAccionCompraTexto: { fontSize: 13, fontWeight: '900', color: Colors.white },
-  factValor: { fontSize: 16, fontWeight: '900', color: Colors.blue, marginTop: 4 },
   btnEliminar: { backgroundColor: Colors.redLight, borderRadius: 8, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   btnAgregar: { width: '100%', paddingVertical: 9, borderRadius: 10, borderWidth: 2, borderStyle: 'dashed', backgroundColor: 'transparent', alignItems: 'center', marginTop: 3 },
   btnAgregarTexto: { fontSize: 13, fontWeight: '800' },
@@ -341,8 +407,44 @@ const estilos = StyleSheet.create({
   modalFondo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCaja: { backgroundColor: Colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
   modalTitulo: { fontSize: 15, fontWeight: '900', color: Colors.blueDark, marginBottom: 14 },
-  modalLabel:  { fontSize: 13, fontWeight: '700', color: Colors.gray, marginBottom: 5 },
+  modalLabel: { fontSize: 13, fontWeight: '700', color: Colors.gray, marginBottom: 5 },
   modalInput: { borderWidth: 2, borderColor: Colors.border, borderRadius: 10, padding: 10, fontSize: 14, fontWeight: '700', color: Colors.dark, backgroundColor: Colors.grayLight, marginBottom: 10 },
   modalBtnCancel: { flex: 1, padding: 11, borderRadius: 10, backgroundColor: Colors.grayLight, alignItems: 'center' },
-  modalBtnOk:     { flex: 2, padding: 11, borderRadius: 10, backgroundColor: Colors.blue, alignItems: 'center' },
+  modalBtnOk: { flex: 2, padding: 11, borderRadius: 10, backgroundColor: Colors.blue, alignItems: 'center' },
+
+  // Estilos del rediseño HTML v5
+  fotoBtn: {
+    backgroundColor: Colors.blue,
+    borderRadius: 13,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 11,
+    elevation: 4,
+    shadowColor: Colors.blue,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+  },
+  fotoBtnTexto: { color: Colors.white, fontSize: 15, fontWeight: '800' },
+  btnManual: {
+    width: '100%',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+  },
+  btnManualTexto: { color: Colors.gray, fontSize: 13, fontWeight: '800' },
+  factProv: { fontSize: 13, fontWeight: '800', color: Colors.blueDark, marginBottom: 2 },
+  factResumen: { fontSize: 11, color: '#475569', lineHeight: 14 },
+  factValor: { fontSize: 17, fontWeight: '900', color: Colors.blue, marginTop: 4 },
+  notaCont: { backgroundColor: Colors.purpleLight, padding: 10, borderRadius: 10, marginBottom: 12 },
+  notaContTeal: { backgroundColor: Colors.tealLight, padding: 10, borderRadius: 10, marginBottom: 12 },
+  notaTexto: { fontSize: 12, color: Colors.purple, fontWeight: '700', fontStyle: 'italic' },
+  notaTextoTeal: { fontSize: 12, color: Colors.teal, fontWeight: '700', fontStyle: 'italic' },
+  subSeccion: { fontSize: 12, fontWeight: '800', color: Colors.gray, marginBottom: 8, textTransform: 'uppercase' },
+  ayudaTexto: { fontSize: 11, color: Colors.gray, fontWeight: '700', marginTop: 2, marginBottom: 10 },
 });

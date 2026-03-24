@@ -17,6 +17,18 @@ export default function PromedioScreen() {
   const diasConVentas = historial.filter(dia => (dia.total || 0) > 0).length;
   const promedioDiario = diasConVentas > 0 ? totalVentas / diasConVentas : 0;
 
+  // Día de mayor y menor venta
+  const diasValidos = historial.filter(dia => (dia.total || 0) > 0);
+  const diaMax = diasValidos.length > 0 ? diasValidos.reduce((max, d) => (d.total || 0) > (max.total || 0) ? d : max, diasValidos[0]) : null;
+  const diaMin = diasValidos.length > 0 ? diasValidos.reduce((min, d) => (d.total || 0) < (min.total || 0) ? d : min, diasValidos[0]) : null;
+
+  function formatFechaCorta(fecha: string) {
+    if (!fecha) return '—';
+    return new Date(fecha + 'T12:00:00').toLocaleDateString('es-CO', {
+      day: 'numeric', month: 'short'
+    });
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F9FA' }} edges={['top']}>
       <View style={styles.header}>
@@ -34,6 +46,19 @@ export default function PromedioScreen() {
         <Text style={styles.label}>Promedio de Ventas Diarias</Text>
         <Text style={styles.value}>{formatCurrency(promedioDiario)}</Text>
         <Text style={styles.subtitle}>Basado en {diasConVentas} días registrados</Text>
+      </View>
+
+      <View style={styles.statsContainer}>
+        <View style={styles.statBox}>
+          <Text style={styles.statLabel}>Venta Máxima</Text>
+          <Text style={[styles.statValue, { color: Colors.greenDark }]}>{diaMax ? formatCurrency(diaMax.total) : '—'}</Text>
+          <Text style={styles.statDate}>{diaMax ? formatFechaCorta(diaMax.fecha) : ''}</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={styles.statLabel}>Venta Mínima</Text>
+          <Text style={[styles.statValue, { color: Colors.orange }]}>{diaMin ? formatCurrency(diaMin.total) : '—'}</Text>
+          <Text style={styles.statDate}>{diaMin ? formatFechaCorta(diaMin.fecha) : ''}</Text>
+        </View>
       </View>
 
       <View style={styles.statsContainer}>
@@ -145,6 +170,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+  },
+  statDate: {
+    fontSize: 10,
+    color: Colors.gray,
+    marginTop: 2,
   },
   infoBox: {
     flexDirection: 'row',
