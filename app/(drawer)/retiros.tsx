@@ -6,6 +6,9 @@
 
 import React from 'react';
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
+import { useNavigation } from 'expo-router';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +19,7 @@ import { Colors } from '../../constants/Colors';
 import { useRouter } from 'expo-router';
 
 export default function RetirosScreen() {
+  const navigation = useNavigation<DrawerNavigationProp<any>>();
   const esAdmin = useAuthStore(s => s.esDuena());
   const { retiros, ingresos, eliminarRetiro, eliminarIngreso } = useHistorialStore();
   const router = useRouter();
@@ -57,7 +61,11 @@ export default function RetirosScreen() {
 
       {/* Encabezado */}
       <View style={estilos.encHead}>
-        <Text style={estilos.encTitulo}>💼 Caja: Retiros e Ingresos (Admin)</Text>
+        <TouchableOpacity style={estilos.btnMenu} onPress={() => navigation.openDrawer()}>
+          <MaterialCommunityIcons name="menu" size={24} color={Colors.dark} />
+        </TouchableOpacity>
+        <Text style={estilos.encTitulo}>💼 Caja: Retiros e Ingresos</Text>
+        <View style={{ width: 40 }} />
       </View>
 
       {/* Resumen Totales */}
@@ -131,8 +139,9 @@ export default function RetirosScreen() {
 
 const estilos = StyleSheet.create({
   scroll:    { flex: 1, backgroundColor: Colors.bg },
-  contenido: { padding: 12, paddingTop: 50 },
-  encHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  contenido: { padding: 12, paddingTop: 20 },
+  encHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginTop: 40 },
+  btnMenu: { padding: 5, borderRadius: 8, backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.border },
   encTitulo: { fontSize: 16, fontWeight: '900', color: Colors.dark },
 
   // Caja de total

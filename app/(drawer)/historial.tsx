@@ -8,6 +8,9 @@ import React, { useState } from 'react';
 import {
   ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert, Platform,
 } from 'react-native';
+import { useNavigation } from 'expo-router';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +21,7 @@ import { Colors } from '../../constants/Colors';
 import { PDFService } from '../../utils/pdfService';
 
 export default function HistorialScreen() {
+  const navigation = useNavigation<DrawerNavigationProp<any>>();
   const { historial, eliminarDia } = useHistorialStore();
   const esAdmin = useAuthStore(s => s.esDuena());
   // Índice del día expandido (-1 significa ninguno)
@@ -144,7 +148,11 @@ export default function HistorialScreen() {
 
       {/* Encabezado */}
       <View style={estilos.encHead}>
+        <TouchableOpacity style={estilos.btnMenu} onPress={() => navigation.openDrawer()}>
+          <MaterialCommunityIcons name="menu" size={24} color={Colors.dark} />
+        </TouchableOpacity>
         <Text style={estilos.encTitulo}>📅 Historial</Text>
+        <View style={{ width: 40 }} /> 
       </View>
 
       {/* Resumen mensual (solo admin) */}
@@ -225,8 +233,9 @@ export default function HistorialScreen() {
 
 const estilos = StyleSheet.create({
   scroll:    { flex: 1, backgroundColor: Colors.bg },
-  contenido: { padding: 12, paddingTop: 50 },
-  encHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  contenido: { padding: 12, paddingTop: 20 },
+  encHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginTop: 40 },
+  btnMenu: { padding: 5, borderRadius: 8, backgroundColor: Colors.grayLight },
   encTitulo: { fontSize: 16, fontWeight: '900', color: Colors.dark },
 
   // Resumen mensual

@@ -1,11 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useNavigation } from 'expo-router';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useHistorialStore } from '../../store/historialStore';
 import { Colors } from '../../constants/Colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatCurrency } from '../../utils/format';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PromedioScreen() {
+  const navigation = useNavigation<DrawerNavigationProp<any>>();
   const historial = useHistorialStore(s => s.historial);
   
   // Calcular promedios
@@ -14,7 +18,15 @@ export default function PromedioScreen() {
   const promedioDiario = diasConVentas > 0 ? totalVentas / diasConVentas : 0;
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F9FA' }} edges={['top']}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.btnMenu} onPress={() => navigation.openDrawer()}>
+          <MaterialCommunityIcons name="menu" size={24} color={Colors.dark} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>📊 Promedio Diario</Text>
+        <View style={{ width: 40 }} />
+      </View>
+      <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.card}>
         <View style={styles.iconContainer}>
           <MaterialCommunityIcons name="trending-up" size={40} color={Colors.green} />
@@ -41,15 +53,39 @@ export default function PromedioScreen() {
           Esta métrica se calcula promediando el total vendido de todos los días cerrados en tu historial.
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
     backgroundColor: '#F8F9FA',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.dark,
+  },
+  btnMenu: {
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: Colors.white,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  container: {
     padding: 20,
+    backgroundColor: '#F8F9FA',
   },
   card: {
     backgroundColor: Colors.white,

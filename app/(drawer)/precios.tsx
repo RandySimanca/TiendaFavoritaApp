@@ -9,6 +9,9 @@ import {
   ScrollView, View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { useNavigation } from 'expo-router';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { usePreciosStore } from '../../store/preciosStore';
@@ -22,6 +25,7 @@ import { Precio } from '../../store/preciosStore';
 const PRECIO_VACIO: Precio = { nombre: '', proveedor: '', compra: 0, venta: 0, unidad: '' };
 
 export default function PreciosScreen() {
+  const navigation = useNavigation<DrawerNavigationProp<any>>();
   const { precios, agregar, editar, eliminar } = usePreciosStore();
   const esAdmin = useAuthStore(s => s.esDuena());
 
@@ -101,6 +105,9 @@ export default function PreciosScreen() {
 
         {/* Encabezado */}
         <View style={estilos.encHead}>
+          <TouchableOpacity style={estilos.btnMenu} onPress={() => navigation.openDrawer()}>
+            <MaterialCommunityIcons name="menu" size={24} color={Colors.dark} />
+          </TouchableOpacity>
           <Text style={estilos.encTitulo}>💲 Lista de Precios</Text>
           <TouchableOpacity 
             style={estilos.btnExportar} 
@@ -249,8 +256,9 @@ export default function PreciosScreen() {
 }
 
 const estilos = StyleSheet.create({
-  contenido: { padding: 12, paddingTop: 50 },
-  encHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  contenido: { padding: 12, paddingTop: 20 },
+  encHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginTop: 40 },
+  btnMenu: { padding: 5, borderRadius: 8, backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.border },
   encTitulo: { fontSize: 16, fontWeight: '900', color: Colors.dark },
   buscador: {
     width: '100%', padding: 12, borderRadius: 12,

@@ -27,7 +27,7 @@ export default function DrawerLayout() {
     <Drawer
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
-        headerShown: true,
+        headerShown: false,
         headerStyle: {
           backgroundColor: Colors.green,
         },
