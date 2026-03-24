@@ -27,43 +27,72 @@ serve(async (req: Request) => {
     const base64Data = image_url.includes(",") ? image_url.split(",")[1] : image_url
 
     if (geminiKey) {
-      console.log("Gemini 1.5 Flash (Standard Mode)...");
+      console.log("Iniciando procesamiento IA (Gemini)...");
       
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: "Analiza esta factura y devuelve SOLO un JSON: { \"proveedor\": \"string\", \"resumen\": \"string\", \"total\": number }. Si no ves el total, usa 0." },
-              {
-                inline_data: {
-                  mime_type: "image/jpeg",
-                  data: base64Data
-                }
-              }
-            ]
-          }]
-        })
-      });
+      const prompt = "Analiza esta factura y devuelve SOLO un JSON: { \"proveedor\": \"string\", \"resumen\": \"string\", \"total\": number }. Si no ves el total, usa 0.";
+      
+      // Lista de modelos de visión a probar secuencialmente (Fallback)
+      const visionModels = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro-vision"];
+      let lastError = null;
 
-      const result = await response.json();
-      
-      if (result.error) {
-        throw new Error(`Detalle Error: ${result.error.message} (Code: ${result.error.code})`);
+      for (const modelName of visionModels) {
+        try {
+          console.log(`Intentando con modelo: ${modelName}...`);
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: prompt },
+                  {
+                    inline_data: {
+                      mime_type: "image/jpeg",
+                      data: base64Data
+                    }
+                  }
+                ]
+              }]
+            })
+          });
+
+          const result = await response.json();
+          
+          if (result.error) {
+            // Si el modelo no existe (404), saltar al siguiente de la lista
+            if (result.error.code === 404 || result.error.status === "NOT_FOUND") {
+              console.warn(`[Aviso] El modelo ${modelName} no está disponible (404).`);
+              lastError = result.error.message;
+              continue;
+            }
+            throw new Error(`Google API Error: ${result.error.message} (${result.error.code})`);
+          }
+
+          const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          
+          if (!text) {
+             console.warn(`[Aviso] El modelo ${modelName} devolvió una respuesta vacía.`);
+             continue;
+          }
+
+          console.log(`Éxito con ${modelName}.`);
+          const match = text.match(/\{[\s\S]*\}/)
+          if (!match) throw new Error("La IA no detectó una estructura de factura válida.");
+          
+          const data = JSON.parse(match[0]);
+          return new Response(JSON.stringify(data), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          });
+
+        } catch (e: any) {
+          console.error(`Fallo con ${modelName}:`, e.message);
+          lastError = e.message;
+        }
       }
 
-      const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      console.log("Respuesta Gemini OK.");
-      
-      const match = text.match(/\{[\s\S]*\}/)
-      if (!match) throw new Error("La IA no detectó una factura válida en esta imagen.");
-      
-      const data = JSON.parse(match[0]);
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
+      // Si todos los modelos fallaron
+      throw new Error(`No se pudo procesar la imagen con ningún modelo disponible. Último error: ${lastError}`);
 
     } else if (anthropicKey) {
       return new Response(JSON.stringify({ error: "Claude deshabilitado." }), { 
@@ -76,7 +105,7 @@ serve(async (req: Request) => {
     }
 
   } catch (err: any) {
-    console.error("Fallo:", err.message);
+    console.error("Fallo Crítico:", err.message);
     return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
