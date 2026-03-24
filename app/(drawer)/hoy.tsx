@@ -100,7 +100,8 @@ export default function HoyScreen() {
 
   const handleGuardar = async () => {
     try {
-      await useHistorialStore.getState().guardarDia(useDiaStore.getState());
+      const estadoCompleto = useDiaStore.getState().capturarEstado();
+      await useHistorialStore.getState().guardarDia(estadoCompleto);
       Alert.alert('Guardado', 'El cuadre del dia se ha sincronizado correctamente.');
     } catch (err) {
       Alert.alert('Error', 'No se pudo guardar el historial.');

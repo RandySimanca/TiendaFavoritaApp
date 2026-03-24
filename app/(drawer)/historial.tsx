@@ -16,7 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useHistorialStore, DiaGuardado } from '../../store/historialStore';
 import { useAuthStore } from '../../store/authStore';
-import { fmt, resumenPorMes } from '../../utils/calcular';
+import { fmt, resumenPorMes, calcularDia } from '../../utils/calcular';
 import { Colors } from '../../constants/Colors';
 import { PDFService } from '../../utils/pdfService';
 
@@ -181,7 +181,17 @@ export default function HistorialScreen() {
 
       {/* Lista de días individuales */}
       {historial.map((d, i) => {
-        const total = Math.max(0, d.total || 0);
+        // Recuperación de datos para registros guardados sin campos calculados
+        let total = d.total || 0;
+        let vEfectivo = d.ventasEf || 0;
+        
+        if (total === 0 && (d.cierre > 0 || d.base > 0)) {
+          const res = calcularDia(d as any);
+          total = res.total;
+          vEfectivo = res.ventasEfectivo;
+        }
+
+        const montoTotal = Math.max(0, total);
         const abierto = expandido === i;
         return (
           <View key={i} style={estilos.histItem}>
@@ -195,7 +205,7 @@ export default function HistorialScreen() {
                 <Text style={estilos.histFecha}>📅 {fechaLegible(d.fecha)}</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Text style={estilos.histTotal}>{fmt(total)}</Text>
+                <Text style={estilos.histTotal}>{fmt(montoTotal)}</Text>
                 <TouchableOpacity 
                    style={estilos.btnMiniExportar} 
                    onPress={(e) => {
@@ -215,12 +225,12 @@ export default function HistorialScreen() {
               {d.totalPagos    > 0 && <View style={[estilos.pill, { backgroundColor: Colors.purpleLight }]}><Text style={[estilos.pillTxt, { color: Colors.purple  }]}>💵 {fmt(d.totalPagos)}</Text></View>}
               {d.totalTv       > 0 && <View style={[estilos.pill, { backgroundColor: Colors.tealLight   }]}><Text style={[estilos.pillTxt, { color: Colors.teal    }]}>📲 {fmt(d.totalTv)}</Text></View>}
               <View style={[estilos.pill, { backgroundColor: Colors.greenLight }]}>
-                <Text style={[estilos.pillTxt, { color: Colors.greenDark }]}>💵 {fmt(d.ventasEf || 0)}</Text>
+                <Text style={[estilos.pillTxt, { color: Colors.greenDark }]}>💵 {fmt(vEfectivo)}</Text>
               </View>
             </View>
 
             {/* Detalle expandible */}
-            {abierto && renderDetalle(d)}
+            {abierto && renderDetalle({ ...d, total: montoTotal, ventasEf: vEfectivo })}
           </View>
         );
       })}

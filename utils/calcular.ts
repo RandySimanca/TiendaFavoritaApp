@@ -109,7 +109,11 @@ export function resumenPorMes(historial: any[]) {
     if (!d.fecha) return;
     const clave = d.fecha.substring(0, 7); // YYYY-MM
     if (!meses[clave]) meses[clave] = { ventas: 0, dias: 0 };
-    meses[clave].ventas += Math.max(0, d.total || 0);
+    let total = d.total || 0;
+    if (total === 0 && (d.cierre > 0 || d.base > 0)) {
+      total = calcularDia(d).total;
+    }
+    meses[clave].ventas += Math.max(0, total);
     meses[clave].dias++;
   });
   return meses;
