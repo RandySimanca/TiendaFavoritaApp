@@ -78,7 +78,7 @@ export default function RootLayout() {
 
     if (rol && enLogin) {
       // Tiene sesión pero está en login -> ir a hoy
-      router.replace('/(tabs)/hoy');
+      router.replace('/(drawer)/hoy');
     } else if (!rol && enTabs) {
       // No tiene sesión pero está dentro de la app -> ir a login
       // Usamos un pequeño delay para evitar conflictos de renderizado en Android
@@ -95,7 +95,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
-        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(drawer)" />
       </Stack>
     </>
   );
