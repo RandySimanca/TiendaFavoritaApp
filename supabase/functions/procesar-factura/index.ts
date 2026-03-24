@@ -11,8 +11,9 @@ serve(async (req: Request) => {
   }
 
   try {
-    console.log("Inicio función (Gemini v2 Mode)");
+    console.log("Inicio función (Multi-IA Mode)");
 
+    const openaiKey = Deno.env.get("OPENAI_API_KEY")
     const geminiKey = Deno.env.get("GEMINI_API_KEY")
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY")
 
@@ -25,13 +26,50 @@ serve(async (req: Request) => {
 
     const { image_url } = body
     const base64Data = image_url.includes(",") ? image_url.split(",")[1] : image_url
+    const prompt = "Analiza esta factura y devuelve SOLO un JSON: { \"proveedor\": \"string\", \"resumen\": \"string\", \"total\": number }. Si no ves el total, usa 0.";
 
+    // 1. ESTRATEGIA A: OpenAI (Muy estable y rápido con gpt-4o-mini)
+    if (openaiKey) {
+      console.log("Usando OpenAI (GPT-4o)...");
+      try {
+        const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Data}` } }
+                ]
+              }
+            ],
+            response_format: { type: "json_object" }
+          })
+        });
+
+        const result = await resp.json();
+        if (result.error) throw new Error(result.error.message);
+        
+        const data = JSON.parse(result.choices[0].message.content);
+        console.log("Éxito con OpenAI.");
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200
+        });
+      } catch (e: any) {
+        console.warn("Fallo OpenAI, intentando alternativas...", e.message);
+      }
+    }
+
+    // 2. ESTRATEGIA B: Gemini (Fallback Multimodelo)
     if (geminiKey) {
       console.log("Iniciando procesamiento IA (Gemini)...");
-      
-      const prompt = "Analiza esta factura y devuelve SOLO un JSON: { \"proveedor\": \"string\", \"resumen\": \"string\", \"total\": number }. Si no ves el total, usa 0.";
-      
-      // Lista de modelos de visión a probar secuencialmente (Fallback)
       const visionModels = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro-vision"];
       let lastError = null;
 
@@ -45,70 +83,52 @@ serve(async (req: Request) => {
               contents: [{
                 parts: [
                   { text: prompt },
-                  {
-                    inline_data: {
-                      mime_type: "image/jpeg",
-                      data: base64Data
-                    }
-                  }
+                  { inline_data: { mime_type: "image/jpeg", data: base64Data } }
                 ]
               }]
             })
           });
 
           const result = await response.json();
-          
           if (result.error) {
-            // Si el modelo no existe (404), saltar al siguiente de la lista
             if (result.error.code === 404 || result.error.status === "NOT_FOUND") {
-              console.warn(`[Aviso] El modelo ${modelName} no está disponible (404).`);
-              lastError = result.error.message;
               continue;
             }
-            throw new Error(`Google API Error: ${result.error.message} (${result.error.code})`);
+            throw new Error(result.error.message);
           }
 
           const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          
-          if (!text) {
-             console.warn(`[Aviso] El modelo ${modelName} devolvió una respuesta vacía.`);
-             continue;
-          }
+          if (!text) continue;
 
           console.log(`Éxito con ${modelName}.`);
           const match = text.match(/\{[\s\S]*\}/)
-          if (!match) throw new Error("La IA no detectó una estructura de factura válida.");
+          if (!match) continue;
           
           const data = JSON.parse(match[0]);
           return new Response(JSON.stringify(data), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 200,
           });
-
         } catch (e: any) {
-          console.error(`Fallo con ${modelName}:`, e.message);
           lastError = e.message;
         }
       }
-
-      // Si todos los modelos fallaron
-      throw new Error(`No se pudo procesar la imagen con ningún modelo disponible. Último error: ${lastError}`);
-
-    } else if (anthropicKey) {
-      return new Response(JSON.stringify({ error: "Claude deshabilitado." }), { 
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    } else {
-      return new Response(JSON.stringify({ error: "Falta GEMINI_API_KEY" }), { 
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+      console.warn("Fallo total en Gemini:", lastError);
     }
+
+    // 3. ESTRATEGIA C: Claude (Comentado/Deshabilitado por créditos)
+    if (anthropicKey && !openaiKey && !geminiKey) {
+       // ... lógia de Claude si fuera necesaria
+    }
+
+    // Falló todo
+    throw new Error("No hay API Key configurada o todos los proveedores fallaron.");
 
   } catch (err: any) {
     console.error("Fallo Crítico:", err.message);
     return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 500
     })
   }
 })
