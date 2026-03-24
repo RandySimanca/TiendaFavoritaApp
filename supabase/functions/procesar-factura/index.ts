@@ -27,7 +27,7 @@ serve(async (req: Request) => {
     const base64Data = image_url.includes(",") ? image_url.split(",")[1] : image_url
 
     if (geminiKey) {
-      console.log("Usando fetch directo a Gemini v1beta...");
+      console.log("Gemini 1.5 Flash (Standard Mode)...");
       
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
         method: 'POST',
@@ -50,14 +50,14 @@ serve(async (req: Request) => {
       const result = await response.json();
       
       if (result.error) {
-        throw new Error(`Gemini Error: ${result.error.message}`);
+        throw new Error(`Detalle Error: ${result.error.message} (Code: ${result.error.code})`);
       }
 
       const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      console.log("Respuesta Gemini bruta:", text);
+      console.log("Respuesta Gemini OK.");
       
       const match = text.match(/\{[\s\S]*\}/)
-      if (!match) throw new Error("No se pudo extraer JSON de la respuesta de Gemini. Respuesta recibida: " + text);
+      if (!match) throw new Error("La IA no detectó una factura válida en esta imagen.");
       
       const data = JSON.parse(match[0]);
       return new Response(JSON.stringify(data), {
@@ -66,18 +66,17 @@ serve(async (req: Request) => {
       });
 
     } else if (anthropicKey) {
-      // (Código Claude oculto por defecto...)
-      return new Response(JSON.stringify({ error: "Claude deshabilitado. Configura GEMINI_API_KEY." }), { 
+      return new Response(JSON.stringify({ error: "Claude deshabilitado." }), { 
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     } else {
-      return new Response(JSON.stringify({ error: "Falta API Key (GEMINI_API_KEY)" }), { 
+      return new Response(JSON.stringify({ error: "Falta GEMINI_API_KEY" }), { 
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
   } catch (err: any) {
-    console.error("Error Crítico:", err.message);
+    console.error("Fallo:", err.message);
     return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
