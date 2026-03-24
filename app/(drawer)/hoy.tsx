@@ -148,8 +148,11 @@ export default function HoyScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#14532d' }}>
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <Modal visible={modalCompra} transparent animationType="slide">
-        <View style={estilos.modalFondo}>
+      <Modal visible={modalCompra} transparent animationType="fade">
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+          style={estilos.modalFondo}
+        >
           <View style={estilos.modalCaja}>
             <Text style={estilos.modalTitulo}>Agregar compra</Text>
             <Text style={estilos.modalLabel}>Proveedor:</Text>
@@ -170,7 +173,7 @@ export default function HoyScreen() {
               placeholder="0"
               placeholderTextColor={Colors.gray}
             />
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
               <TouchableOpacity style={estilos.modalBtnCancel} onPress={() => setModalCompra(false)}>
                 <Text style={{ fontWeight: '800', color: Colors.dark }}>Cancelar</Text>
               </TouchableOpacity>
@@ -179,7 +182,7 @@ export default function HoyScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <LinearGradient colors={['#14532d', '#16a34a', '#22c55e']} style={estilos.header} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
@@ -412,8 +415,8 @@ const estilos = StyleSheet.create({
   btnGuardarTexto: { color: Colors.white, fontSize: 14, fontWeight: '800' },
   btnNuevo: { flex: 1, backgroundColor: Colors.blue, borderRadius: 13, padding: 13, alignItems: 'center' },
   btnNuevoTexto: { color: Colors.white, fontSize: 14, fontWeight: '800' },
-  modalFondo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalCaja: { backgroundColor: Colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
+  modalFondo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalCaja: { backgroundColor: Colors.white, borderRadius: 20, padding: 20, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4 },
   modalTitulo: { fontSize: 15, fontWeight: '900', color: Colors.blueDark, marginBottom: 14 },
   modalLabel: { fontSize: 13, fontWeight: '700', color: Colors.gray, marginBottom: 5 },
   modalInput: { borderWidth: 2, borderColor: Colors.border, borderRadius: 10, padding: 10, fontSize: 14, fontWeight: '700', color: Colors.dark, backgroundColor: Colors.grayLight, marginBottom: 10 },
