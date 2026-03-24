@@ -167,7 +167,7 @@ export default function HoyScreen() {
       }
     } catch (error: any) {
       console.error("[IA] Error en captura:", error.message || error);
-      Alert.alert('Error', 'No se pudo procesar la imagen. Verifica tu conexión.');
+      Alert.alert('Error IA', error.message || 'No se pudo procesar la imagen.');
     }
   }
 
