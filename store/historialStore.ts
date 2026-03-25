@@ -94,7 +94,14 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
       const dataRet    = await dbGetRetiros();
       const dataIng    = await dbGetIngresos();
       
-      const historial: DiaGuardado[] = dataHist.map(h => JSON.parse(h.datos_json));
+      const historial: DiaGuardado[] = dataHist.map(h => {
+        try {
+          return JSON.parse(h.datos_json);
+        } catch (e) {
+          console.error("Error parseando registro de historial:", e);
+          return null;
+        }
+      }).filter(h => h !== null);
       const retiros: Retiro[] = dataRet.map(r => ({
         id: r.id, fecha: r.fecha, valor: r.valor, nota: r.nota, ts: r.timestamp
       }));
@@ -116,24 +123,29 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
           let finalIng  = [...ingresos];
 
           if (!errH && cloudHist) {
-            const hCloud = cloudHist.map(h => h.datos_json);
+            const hCloud = cloudHist.map(h => h.datos_json).filter(h => h && h.fecha);
             const mapHist = new Map();
             hCloud.forEach(h => mapHist.set(h.fecha, h));
-            historial.forEach(h => mapHist.set(h.fecha, h));
-            finalHist = Array.from(mapHist.values()).sort((a, b) => b.fecha.localeCompare(a.fecha));
+            historial.forEach(h => {
+              if (h && h.fecha) mapHist.set(h.fecha, h);
+            });
+            finalHist = Array.from(mapHist.values()).sort((a: any, b: any) => {
+              return (b.fecha || '').localeCompare(a.fecha || '');
+            });
           }
 
           // --- Sanación de Retiros e Ingresos desde el Historial ---
           finalHist.forEach((h: any) => {
+             if (!h) return;
              if (h.retiro && h.retiro > 0) {
-                const existe = finalRet.some(r => r.fecha === h.fecha && Math.abs(r.valor - h.retiro) < 0.1);
+                const existe = finalRet.some(r => r && r.fecha === h.fecha && Math.abs((r.valor || 0) - h.retiro) < 0.1);
                 if (!existe) {
                   const nuevo: Retiro = { id: undefined, fecha: h.fecha, valor: h.retiro, nota: h.notaRetiro || 'Recuperado de historial', ts: h.ts || Date.now() };
                   finalRet.push(nuevo);
                 }
              }
              if (h.ingreso && h.ingreso > 0) {
-                const existe = finalIng.some(i => i.fecha === h.fecha && Math.abs(i.valor - h.ingreso) < 0.1);
+                const existe = finalIng.some(i => i && i.fecha === h.fecha && Math.abs((i.valor || 0) - h.ingreso) < 0.1);
                 if (!existe) {
                   const nuevo: Ingreso = { id: undefined, fecha: h.fecha, valor: h.ingreso, nota: h.notaIngreso || 'Recuperado de historial', ts: h.ts || Date.now() };
                   finalIng.push(nuevo);
@@ -142,29 +154,33 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
           });
 
           if (!errR && cloudRet) {
-            const rCloud: Retiro[] = cloudRet.map(r => ({
-              id: r.id, fecha: r.fecha, valor: r.valor, nota: r.nota, ts: r.timestamp
-            }));
+            const rCloud = (cloudRet || []).map((r: any) => {
+              if (!r || !r.fecha) return null;
+              return { id: r.id, fecha: r.fecha, valor: r.valor, nota: r.nota, ts: r.timestamp };
+            }).filter(r => r !== null) as Retiro[];
+            
             rCloud.forEach(rc => {
-               const duplicado = finalRet.some(r => r.fecha === rc.fecha && Math.abs(r.valor - rc.valor) < 0.1);
+               const duplicado = finalRet.some(r => r && r.fecha === rc.fecha && Math.abs((r.valor || 0) - (rc.valor || 0)) < 0.1);
                if (!duplicado) finalRet.push(rc);
             });
           }
 
           if (!errI && cloudIng) {
-            const iCloud: Ingreso[] = cloudIng.map(i => ({
-              id: i.id, fecha: i.fecha, valor: i.valor, nota: i.nota, ts: i.timestamp
-            }));
+            const iCloud = (cloudIng || []).map((i: any) => {
+              if (!i || !i.fecha) return null;
+              return { id: i.id, fecha: i.fecha, valor: i.valor, nota: i.nota, ts: i.timestamp };
+            }).filter(i => i !== null) as Ingreso[];
+
             iCloud.forEach(ic => {
-               const duplicado = finalIng.some(i => i.fecha === ic.fecha && Math.abs(i.valor - ic.valor) < 0.1);
+               const duplicado = finalIng.some(i => i && i.fecha === ic.fecha && Math.abs((i.valor || 0) - (ic.valor || 0)) < 0.1);
                if (!duplicado) finalIng.push(ic);
             });
           }
 
           set({ 
              historial: finalHist, 
-             retiros: finalRet.sort((a, b) => (b.ts || 0) - (a.ts || 0)), 
-             ingresos: finalIng.sort((a, b) => (b.ts || 0) - (a.ts || 0)) 
+             retiros: finalRet.filter(r => r).sort((a, b) => (b.ts || 0) - (a.ts || 0)), 
+             ingresos: finalIng.filter(i => i).sort((a, b) => (b.ts || 0) - (a.ts || 0)) 
           });
 
         } catch (e) {

@@ -46,12 +46,13 @@ export interface ResultadoCuadre {
 }
 
 // Suma todos los valores de un arreglo de filas
-export function sumarFilas(filas: FilaDato[]): number {
-  return filas.reduce((acc, f) => acc + (f.valor || 0), 0);
+export function sumarFilas(filas: FilaDato[] = []): number {
+  return (filas || []).reduce((acc, f) => acc + (f.valor || 0), 0);
 }
 
 // Formatea un número como pesos colombianos: $ 1.234.567
 export function fmt(n: number): string {
+  if (n === undefined || n === null || isNaN(n)) return '$ 0';
   return '$ ' + Math.round(n).toLocaleString('es-CO');
 }
 
@@ -71,9 +72,21 @@ export function parseInput(s: string): number {
 // Cálculo principal del cuadre diario
 // Reproduce exactamente la función calcular() del HTML original
 export function calcularDia(estado: EstadoDia): ResultadoCuadre {
-  const { base, cierre, retiro, notaRetiro, ingreso, notaIngreso, facturas, gastos, creditos, pagos, transferenciaVentas, transferenciaPagos } = estado;
+  const { 
+    base = 0, 
+    cierre = 0, 
+    retiro = 0, 
+    ingreso = 0, 
+    prestamo = 0,
+    facturas = [], 
+    gastos = [], 
+    creditos = [], 
+    pagos = [], 
+    transferenciaVentas = [], 
+    transferenciaPagos = [] 
+  } = (estado || {}) as any;
 
-  const compras  = facturas.reduce((s, f) => s + f.total, 0);
+  const compras  = (facturas || []).reduce((s: number, f: any) => s + (f.total || 0), 0);
   const totalGastos   = sumarFilas(gastos);
   const totalCreditos = sumarFilas(creditos);
   const totalPagos    = sumarFilas(pagos);
@@ -83,7 +96,7 @@ export function calcularDia(estado: EstadoDia): ResultadoCuadre {
   // ventasEfectivo = (cierre + retiro + prestamo) - base - ingreso + compras + gastos + creditos - pagos
   // Se suma 'retiro' y 'prestamo' porque es dinero que salió de la venta pero ya no está en el 'cierre'.
   // Se resta 'pagos' porque es dinero que entró a caja pero NO es venta de hoy (es cobro de deuda).
-  const ventasEfectivo = (cierre + retiro + (estado.prestamo || 0)) - base - ingreso + compras + totalGastos + totalCreditos - totalPagos;
+  const ventasEfectivo = (cierre + retiro + prestamo) - base - ingreso + compras + totalGastos + totalCreditos - totalPagos;
 
   // Total = solo ventas en efectivo.
   // Las transferencias (totalTv, totalTp) NO se suman porque ese dinero está en el banco, no en la caja.

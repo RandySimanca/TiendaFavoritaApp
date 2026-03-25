@@ -62,8 +62,9 @@ export const usePreciosStore = create<PreciosStore>((set, get) => ({
           const { data: cloudData, error } = await supabase.from('precios').select('*');
           if (!error && cloudData && cloudData.length > 0) {
             // Si el cloud tiene datos, los mostramos. 
-            // TODO: En el futuro implementar merge inteligente.
-            set({ precios: cloudData });
+            // Filtrar posibles nulos o malformados
+            const limpios = cloudData.filter(p => p && p.nombre);
+            set({ precios: limpios });
           } else if (!error && cloudData && cloudData.length === 0 && data.length > 0) {
             // Seed inicial al cloud si está vacío
             await supabase.from('precios').insert(data.map(p => ({
