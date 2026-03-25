@@ -57,11 +57,51 @@ export async function inicializarDB() {
       clave TEXT PRIMARY KEY,
       valor_json TEXT NOT NULL
     );
+
+    -- Tabla para los ahorros o gastos extraordinarios (opcional)
+    CREATE TABLE IF NOT EXISTS cierres_mensuales (
+      mes TEXT PRIMARY KEY, -- "YYYY-MM"
+      venta_total REAL DEFAULT 0,
+      gasto_total REAL DEFAULT 0,
+      utilidad REAL DEFAULT 0,
+      transacciones INTEGER DEFAULT 0,
+      json_detalle TEXT, -- Para guardar desglose de mas vendidos etc
+      timestamp INTEGER
+    );
   `);
 
   // Columnas added en versiones posteriores (no falla si ya existen)
   await db.execAsync('ALTER TABLE retiros ADD COLUMN nota TEXT;').catch(() => null);
   await db.execAsync('ALTER TABLE ingresos ADD COLUMN nota TEXT;').catch(() => null);
+  await db.execAsync('ALTER TABLE cierres_mensuales ADD COLUMN json_detalle TEXT;').catch(() => null);
+}
+
+// ── UTILIDADES DE CIERRES MENSUALES ──
+
+export async function dbGetCierresMensuales() {
+  return await db.getAllAsync<{
+    mes: string, 
+    venta_total: number, 
+    gasto_total: number, 
+    utilidad: number, 
+    transacciones: number,
+    json_detalle: string,
+    timestamp: number
+  }>('SELECT * FROM cierres_mensuales ORDER BY mes DESC');
+}
+
+export async function dbInsertCierreMensual(c: {
+  mes: string, 
+  venta_total: number, 
+  gasto_total: number, 
+  utilidad: number, 
+  transacciones: number,
+  json_detalle: string
+}) {
+  await db.runAsync(
+    'INSERT OR REPLACE INTO cierres_mensuales (mes, venta_total, gasto_total, utilidad, transacciones, json_detalle, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    c.mes, c.venta_total, c.gasto_total, c.utilidad, c.transacciones, c.json_detalle, Date.now()
+  );
 }
 
 // ── UTILIDADES DE PRECIOS ──

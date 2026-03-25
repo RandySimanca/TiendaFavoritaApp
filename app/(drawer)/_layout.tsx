@@ -94,6 +94,17 @@ export default function DrawerLayout() {
           drawerItemStyle: esAdmin ? undefined : { display: 'none' },
         }}
       />
+      <Drawer.Screen
+        name="mensual"
+        options={{
+          drawerLabel: 'Resumen Mensual',
+          title: '📊 Reportes Mensuales',
+          drawerIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="chart-areaspline" size={size} color={color} />
+          ),
+          drawerItemStyle: esAdmin ? undefined : { display: 'none' },
+        }}
+      />
     </Drawer>
   );
 }

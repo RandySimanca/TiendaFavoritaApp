@@ -137,3 +137,39 @@ export function resumenPorMes(historial: any[]) {
   });
   return meses;
 }
+
+// Genera un objeto de cierre formal para persistir
+export function generarCierreMensual(mes: string, historial: any[]): any {
+  const diasMes = historial.filter(d => d.fecha && d.fecha.startsWith(mes));
+  
+  let ventaTotal = 0;
+  let gastoTotal = 0;
+  let transacciones = 0;
+  const proveedores: Record<string, number> = {};
+
+  diasMes.forEach(d => {
+    const res = calcularDia(d);
+    ventaTotal += res.total;
+    gastoTotal += (res.compras + res.totalGastos);
+    transacciones += (d.facturas?.length || 0) + (d.gastos?.length || 0) + (d.pagos?.length || 0);
+    
+    // Conteo de proveedores (opcional para el JSON detalle)
+    d.facturas?.forEach((f: any) => {
+      proveedores[f.proveedor] = (proveedores[f.proveedor] || 0) + f.total;
+    });
+  });
+
+  return {
+    mes,
+    venta_total: ventaTotal,
+    gasto_total: gastoTotal,
+    utilidad: ventaTotal - gastoTotal,
+    transacciones,
+    json_detalle: JSON.stringify({
+      num_dias: diasMes.length,
+      proveedores_top: Object.entries(proveedores)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+    })
+  };
+}
