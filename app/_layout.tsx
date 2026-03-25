@@ -11,6 +11,7 @@ import { useHistorialStore } from '../store/historialStore';
 import { usePreciosStore } from '../store/preciosStore';
 import { useDiaStore } from '../store/diaStore';
 import { useMensualStore } from '../store/mensualStore';
+import { useGastosStore } from '../store/gastosStore';
 import { inicializarDB } from '../utils/database';
 import * as Updates from 'expo-updates';
 import { Alert } from 'react-native';
@@ -25,6 +26,7 @@ export default function RootLayout() {
   const cargarPrecios   = usePreciosStore(s => s.cargar);
   const cargarDia       = useDiaStore(s => s.cargarDiaActual);
   const cargarMensual   = useMensualStore(s => s.cargar);
+  const cargarGastos    = useGastosStore(s => s.cargar);
   const router = useRouter();
   const segments = useSegments();
   
@@ -64,12 +66,14 @@ export default function RootLayout() {
       cargarPrecios();
       cargarDia();
       cargarMensual();
+      cargarGastos();
 
       // Suscripciones Realtime (Cloud Sync)
       usePreciosStore.getState().suscribirCambios();
       useHistorialStore.getState().suscribirCambios();
       useDiaStore.getState().suscribirCambios();
       useMensualStore.getState().suscribirCambios();
+      useGastosStore.getState().suscribirCambios();
     }
   }, [rol, dbListo]);
 

@@ -105,6 +105,17 @@ export default function DrawerLayout() {
           drawerItemStyle: esAdmin ? undefined : { display: 'none' },
         }}
       />
+      <Drawer.Screen
+        name="gastos"
+        options={{
+          drawerLabel: 'Gastos Operacionales',
+          title: '💸 Gastos Operacionales',
+          drawerIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="cash-register" size={size} color={color} />
+          ),
+          drawerItemStyle: esAdmin ? undefined : { display: 'none' },
+        }}
+      />
     </Drawer>
   );
 }

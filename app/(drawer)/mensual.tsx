@@ -5,23 +5,41 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from 'expo-router';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useMensualStore } from '../../store/mensualStore';
 import { useHistorialStore } from '../../store/historialStore';
+import { useGastosStore } from '../../store/gastosStore';
 import { fmt } from '../../utils/calcular';
 import { Colors } from '../../constants/Colors';
 
 export default function MensualScreen() {
+  const navigation = useNavigation<DrawerNavigationProp<any>>();
   const { cierres, cargando, cargar, realizarCierre } = useMensualStore();
   const { historial } = useHistorialStore();
+  const { gastos: gastosAdmon, cargar: cargarGastos } = useGastosStore();
   const [procesando, setProcesando] = useState(false);
 
   // Fecha actual para el botón de cierre
   const mesActual = new Date().toISOString().slice(0, 7); // YYYY-MM
   const yaCerrado = cierres.some(c => c.mes === mesActual);
 
+  // Calculamos una vista previa "en vivo" a partir del historial actual
+  const [preview, setPreview] = useState<any>(null);
+
   useEffect(() => {
     cargar();
+    cargarGastos(mesActual);
   }, []);
+
+  // Recalcular la vista previa cuando el historial cambie
+  useEffect(() => {
+    if (historial.length > 0) {
+      const { generarCierreMensual } = require('../../utils/calcular');
+      const p = generarCierreMensual(mesActual, historial, gastosAdmon);
+      setPreview(p);
+    }
+  }, [historial, gastosAdmon, mesActual]);
 
   const handleCerrarMes = () => {
     if (yaCerrado) {
@@ -44,8 +62,8 @@ export default function MensualScreen() {
     Alert.alert("Éxito", "El cierre mensual se ha generado y sincronizado correctamente.");
   };
 
-  // Comparación con mes anterior
-  const actual = cierres.find(c => c.mes === mesActual);
+  // Datos a mostrar: Priorizar el cierre guardado si existe, de lo contrario la vista previa
+  const actual = cierres.find(c => c.mes === mesActual) || preview;
   const anteriorClave = () => {
     const [y, m] = mesActual.split('-').map(Number);
     const prevM = m === 1 ? 12 : m - 1;
@@ -84,12 +102,25 @@ export default function MensualScreen() {
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Header con Gradiente Premium */}
       <LinearGradient colors={['#14532d', '#16a34a']} style={styles.header}>
-        <Text style={styles.headerTitle}>Resumen Mensual</Text>
-        <Text style={styles.headerSubtitle}>Control y Crecimiento del Negocio</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 10 }}>
+          <TouchableOpacity onPress={() => navigation.openDrawer()}>
+            <MaterialCommunityIcons name="menu" size={28} color={Colors.white} />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerTitle}>Resumen Mensual</Text>
+            <Text style={styles.headerSubtitle}>Control y Crecimiento del Negocio</Text>
+          </View>
+        </View>
       </LinearGradient>
 
       {/* Tarjeta Principal de Mes Actual */}
       <View style={styles.card}>
+        {!yaCerrado && (
+          <View style={[styles.pill, { alignSelf: 'flex-start', marginBottom: 10, backgroundColor: '#fef3c7' }]}>
+            <MaterialCommunityIcons name="eye-outline" size={14} color="#92400e" />
+            <Text style={[styles.pillText, { color: '#92400e' }]}>Vista en tiempo real</Text>
+          </View>
+        )}
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>Mes en curso: {mesActual}</Text>
           {actual && anterior && (
@@ -105,17 +136,63 @@ export default function MensualScreen() {
             </Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Gastos/Compras</Text>
+            <Text style={styles.statLabel}>Compras</Text>
+            <Text style={[styles.statValue, { color: Colors.blue }]}>
+              {fmt(actual?.compras_total || 0)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[styles.statsGrid, { marginTop: 15 }]}>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Gastos</Text>
             <Text style={[styles.statValue, { color: Colors.orange }]}>
               {fmt(actual?.gasto_total || 0)}
+            </Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Transacciones</Text>
+            <Text style={[styles.statValue, { color: Colors.dark }]}>
+              {actual?.transacciones || 0}
             </Text>
           </View>
         </View>
 
         <View style={styles.divider} />
         
+        {/* Nueva sección para Préstamos y Retiros */}
+        <View style={styles.extraGrid}>
+          <View style={[styles.extraItem, { backgroundColor: '#fff7ed' }]}>
+            <MaterialCommunityIcons name="account-cash" size={20} color="#c2410c" />
+            <View>
+              <Text style={styles.extraLabel}>Retiros</Text>
+              <Text style={styles.extraValue}>{fmt(actual?.retiros_total || 0)}</Text>
+            </View>
+          </View>
+          <View style={[styles.extraItem, { backgroundColor: '#fef3c7' }]}>
+            <MaterialCommunityIcons name="account-group" size={20} color="#b45309" />
+            <View>
+              <Text style={styles.extraLabel}>Préstamos Empleado</Text>
+              <Text style={styles.extraValue}>{fmt(actual?.prestamos_total || 0)}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.extraGrid, { marginTop: 10 }]}>
+          <View style={[styles.extraItem, { backgroundColor: '#f0fdf4' }]}>
+            <MaterialCommunityIcons name="currency-usd" size={20} color="#15803d" />
+            <View>
+              <Text style={styles.extraLabel}>Ingresos Extra</Text>
+              <Text style={styles.extraValue}>{fmt(actual?.ingresos_total || 0)}</Text>
+            </View>
+          </View>
+          <View style={{ flex: 1 }} />
+        </View>
+
+        <View style={styles.divider} />
+
         <View style={styles.utilidadBox}>
-          <Text style={styles.utilidadLabel}>Utilidad Neta</Text>
+          <Text style={styles.utilidadLabel}>Utilidad Neta (Ventas - Compras - Gastos)</Text>
           <Text style={styles.utilidadValue}>{fmt(actual?.utilidad || 0)}</Text>
         </View>
 
@@ -158,7 +235,10 @@ export default function MensualScreen() {
                 <Text style={styles.histUtilidad}>{fmt(c.utilidad)}</Text>
               </View>
               <Text style={styles.histSub}>
-                {c.transacciones} transacciones • Ventas: {fmt(c.venta_total)}
+                V: {fmt(c.venta_total)} • C: {fmt(c.compras_total)} • G: {fmt(c.gasto_total)}
+              </Text>
+              <Text style={[styles.histSub, { marginTop: 2, color: '#b45309', fontWeight: '600' }]}>
+                💼 Ret: {fmt(c.retiros_total)} • 👤 Prést: {fmt(c.prestamos_total)} • 💰 Ing: {fmt(c.ingresos_total)}
               </Text>
             </View>
           </View>
@@ -180,13 +260,17 @@ const styles = StyleSheet.create({
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   cardTitle: { fontSize: 16, fontWeight: '800', color: Colors.dark },
-  statsGrid: { flexDirection: 'row', justifyContent: 'space-between' },
+  statsGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
   statItem: { flex: 1 },
   statLabel: { fontSize: 12, color: Colors.gray, marginBottom: 4 },
   statValue: { fontSize: 18, fontWeight: '900' },
   divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 15 },
+  extraGrid: { flexDirection: 'row', gap: 10 },
+  extraItem: { flex: 1, padding: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  extraLabel: { fontSize: 10, color: Colors.gray, fontWeight: '700' },
+  extraValue: { fontSize: 13, fontWeight: '800', color: Colors.dark },
   utilidadBox: { alignItems: 'center', marginBottom: 20 },
-  utilidadLabel: { fontSize: 14, color: Colors.gray, fontWeight: '600' },
+  utilidadLabel: { fontSize: 11, color: Colors.gray, fontWeight: '600', marginBottom: 5 },
   utilidadValue: { fontSize: 32, fontWeight: '900', color: Colors.dark },
   button: {
     backgroundColor: Colors.green, padding: 15, borderRadius: 12,
@@ -210,7 +294,7 @@ const styles = StyleSheet.create({
   histHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   histMes: { fontWeight: '800', fontSize: 15, color: Colors.dark },
   histUtilidad: { fontWeight: '900', color: Colors.green },
-  histSub: { fontSize: 12, color: Colors.gray },
+  histSub: { fontSize: 11, color: Colors.gray },
   empty: { alignItems: 'center', marginTop: 40 },
   emptyText: { color: Colors.gray, marginTop: 10, fontSize: 14, fontWeight: '600' }
 });

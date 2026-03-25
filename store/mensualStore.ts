@@ -2,11 +2,16 @@ import { create } from 'zustand';
 import { dbGetCierresMensuales, dbInsertCierreMensual } from '../utils/database';
 import { supabase } from '../utils/supabase';
 import { generarCierreMensual } from '../utils/calcular';
+import { useGastosStore } from './gastosStore';
 
 interface CierreMensual {
   mes: string;
   venta_total: number;
+  compras_total: number;
   gasto_total: number;
+  retiros_total: number;
+  prestamos_total: number;
+  ingresos_total: number;
   utilidad: number;
   transacciones: number;
   json_detalle: string;
@@ -29,7 +34,7 @@ export const useMensualStore = create<MensualStore>((set, get) => ({
   cargar: async () => {
     try {
       const data = await dbGetCierresMensuales();
-      set({ cierres: data, cargando: false });
+      set({ cierres: data as CierreMensual[], cargando: false });
 
       // Sincronización en segundo plano con la nube
       (async () => {
@@ -40,7 +45,7 @@ export const useMensualStore = create<MensualStore>((set, get) => ({
 
         if (!error && cloudData) {
           // TODO: Merge inteligente, por ahora gana nube
-          set({ cierres: cloudData });
+          set({ cierres: cloudData as CierreMensual[] });
         }
       })();
     } catch (e) {
@@ -51,12 +56,13 @@ export const useMensualStore = create<MensualStore>((set, get) => ({
 
   realizarCierre: async (mes, historial) => {
     try {
-      const cierre = generarCierreMensual(mes, historial);
+      const gastosAdmon = useGastosStore.getState().gastos;
+      const cierre = generarCierreMensual(mes, historial, gastosAdmon);
       
       // 1. Local
       await dbInsertCierreMensual(cierre);
       const nuevos = await dbGetCierresMensuales();
-      set({ cierres: nuevos });
+      set({ cierres: nuevos as CierreMensual[] });
 
       // 2. Cloud
       const { error } = await supabase

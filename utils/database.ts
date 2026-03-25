@@ -52,6 +52,17 @@ export async function inicializarDB() {
       timestamp INTEGER
     );
 
+    -- Tabla para los gastos fijos/operacionales del mes (Arriendo, Luz, etc)
+    CREATE TABLE IF NOT EXISTS gastos_administrativos (
+      id TEXT PRIMARY KEY,
+      mes TEXT, -- YYYY-MM
+      concepto TEXT,
+      monto REAL,
+      categoria TEXT,
+      fuente TEXT, -- "Caja" o "Banco"
+      timestamp INTEGER
+    );
+
     -- Tabla para el borrador del día actual (reemplaza AsyncStorage)
     CREATE TABLE IF NOT EXISTS borradores (
       clave TEXT PRIMARY KEY,
@@ -62,7 +73,11 @@ export async function inicializarDB() {
     CREATE TABLE IF NOT EXISTS cierres_mensuales (
       mes TEXT PRIMARY KEY, -- "YYYY-MM"
       venta_total REAL DEFAULT 0,
+      compras_total REAL DEFAULT 0,
       gasto_total REAL DEFAULT 0,
+      retiros_total REAL DEFAULT 0,
+      prestamos_total REAL DEFAULT 0,
+      ingresos_total REAL DEFAULT 0,
       utilidad REAL DEFAULT 0,
       transacciones INTEGER DEFAULT 0,
       json_detalle TEXT, -- Para guardar desglose de mas vendidos etc
@@ -73,6 +88,10 @@ export async function inicializarDB() {
   // Columnas added en versiones posteriores (no falla si ya existen)
   await db.execAsync('ALTER TABLE retiros ADD COLUMN nota TEXT;').catch(() => null);
   await db.execAsync('ALTER TABLE ingresos ADD COLUMN nota TEXT;').catch(() => null);
+  await db.execAsync('ALTER TABLE cierres_mensuales ADD COLUMN compras_total REAL DEFAULT 0;').catch(() => null);
+  await db.execAsync('ALTER TABLE cierres_mensuales ADD COLUMN retiros_total REAL DEFAULT 0;').catch(() => null);
+  await db.execAsync('ALTER TABLE cierres_mensuales ADD COLUMN prestamos_total REAL DEFAULT 0;').catch(() => null);
+  await db.execAsync('ALTER TABLE cierres_mensuales ADD COLUMN ingresos_total REAL DEFAULT 0;').catch(() => null);
   await db.execAsync('ALTER TABLE cierres_mensuales ADD COLUMN json_detalle TEXT;').catch(() => null);
 }
 
@@ -82,7 +101,10 @@ export async function dbGetCierresMensuales() {
   return await db.getAllAsync<{
     mes: string, 
     venta_total: number, 
+    compras_total: number,
     gasto_total: number, 
+    retiros_total: number,
+    prestamos_total: number,
     utilidad: number, 
     transacciones: number,
     json_detalle: string,
@@ -93,15 +115,45 @@ export async function dbGetCierresMensuales() {
 export async function dbInsertCierreMensual(c: {
   mes: string, 
   venta_total: number, 
+  compras_total: number,
   gasto_total: number, 
+  retiros_total: number,
+  prestamos_total: number,
+  ingresos_total: number,
   utilidad: number, 
   transacciones: number,
   json_detalle: string
 }) {
   await db.runAsync(
-    'INSERT OR REPLACE INTO cierres_mensuales (mes, venta_total, gasto_total, utilidad, transacciones, json_detalle, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    c.mes, c.venta_total, c.gasto_total, c.utilidad, c.transacciones, c.json_detalle, Date.now()
+    'INSERT OR REPLACE INTO cierres_mensuales (mes, venta_total, compras_total, gasto_total, retiros_total, prestamos_total, ingresos_total, utilidad, transacciones, json_detalle, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    c.mes, c.venta_total, c.compras_total, c.gasto_total, c.retiros_total, c.prestamos_total, c.ingresos_total, c.utilidad, c.transacciones, c.json_detalle, Date.now()
   );
+}
+
+// ── UTILIDADES DE GASTOS ADMINISTRATIVOS ──
+
+export async function dbGetGastosAdministrativos(mes?: string) {
+  if (mes) {
+    return await db.getAllAsync<{
+      id: string, mes: string, concepto: string, monto: number, categoria: string, fuente: string, timestamp: number
+    }>('SELECT * FROM gastos_administrativos WHERE mes = ? ORDER BY timestamp DESC', mes);
+  }
+  return await db.getAllAsync<{
+    id: string, mes: string, concepto: string, monto: number, categoria: string, fuente: string, timestamp: number
+  }>('SELECT * FROM gastos_administrativos ORDER BY timestamp DESC');
+}
+
+export async function dbInsertGastoAdmon(g: {
+  id: string, mes: string, concepto: string, monto: number, categoria: string, fuente: string
+}) {
+  await db.runAsync(
+    'INSERT OR REPLACE INTO gastos_administrativos (id, mes, concepto, monto, categoria, fuente, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    g.id, g.mes, g.concepto, g.monto, g.categoria, g.fuente, Date.now()
+  );
+}
+
+export async function dbDeleteGastoAdmon(id: string) {
+  await db.runAsync('DELETE FROM gastos_administrativos WHERE id = ?', id);
 }
 
 // ── UTILIDADES DE PRECIOS ──

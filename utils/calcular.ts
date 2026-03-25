@@ -139,34 +139,54 @@ export function resumenPorMes(historial: any[]) {
 }
 
 // Genera un objeto de cierre formal para persistir
-export function generarCierreMensual(mes: string, historial: any[]): any {
+export function generarCierreMensual(mes: string, historial: any[], gastosAdmon: any[] = []): any {
   const diasMes = historial.filter(d => d.fecha && d.fecha.startsWith(mes));
+  const extras  = gastosAdmon.filter(g => g.mes === mes);
   
   let ventaTotal = 0;
-  let gastoTotal = 0;
+  let comprasTotal = 0;
+  let gastosTotal  = 0;
+  let retirosTotal = 0;
+  let prestamosTotal = 0;
+  let ingresosTotal  = 0;
   let transacciones = 0;
   const proveedores: Record<string, number> = {};
 
+  // 1. Datos del historial diario
   diasMes.forEach(d => {
     const res = calcularDia(d);
-    ventaTotal += res.total;
-    gastoTotal += (res.compras + res.totalGastos);
+    ventaTotal   += res.total;
+    comprasTotal += res.compras;
+    gastosTotal  += res.totalGastos;
+    retirosTotal += (d.retiro || 0);
+    prestamosTotal += (d.prestamo || 0);
+    ingresosTotal += (d.ingreso || 0);
+    
     transacciones += (d.facturas?.length || 0) + (d.gastos?.length || 0) + (d.pagos?.length || 0);
     
-    // Conteo de proveedores (opcional para el JSON detalle)
+    // Conteo de proveedores (para el JSON detalle)
     d.facturas?.forEach((f: any) => {
       proveedores[f.proveedor] = (proveedores[f.proveedor] || 0) + f.total;
     });
   });
 
+  // 2. Gastos Administrativos (Operacionales)
+  const totalAdmon = extras.reduce((acc, g) => acc + (g.monto || 0), 0);
+  transacciones += extras.length;
+
   return {
     mes,
     venta_total: ventaTotal,
-    gasto_total: gastoTotal,
-    utilidad: ventaTotal - gastoTotal,
+    compras_total: comprasTotal,
+    gasto_total: gastosTotal + totalAdmon,
+    retiros_total: retirosTotal,
+    prestamos_total: prestamosTotal,
+    ingresos_total: ingresosTotal,
+    utilidad: ventaTotal - comprasTotal - gastosTotal - totalAdmon,
     transacciones,
     json_detalle: JSON.stringify({
       num_dias: diasMes.length,
+      gastos_admon: totalAdmon,
       proveedores_top: Object.entries(proveedores)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
