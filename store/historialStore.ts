@@ -25,6 +25,8 @@ export interface DiaGuardado {
   notaRetiro?: string;
   ingreso: number;
   notaIngreso?: string;
+  prestamo: number;
+  notaPrestamo?: string;
   compras: number;
   facturas: { proveedor: string; resumen: string; total: number }[];
   gastos: { nombre: string; valor: number }[];
@@ -92,41 +94,79 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
       const dataRet    = await dbGetRetiros();
       const dataIng    = await dbGetIngresos();
       
-      const historial = dataHist.map(h => JSON.parse(h.datos_json));
-      const retiros = dataRet.map(r => ({
+      const historial: DiaGuardado[] = dataHist.map(h => JSON.parse(h.datos_json));
+      const retiros: Retiro[] = dataRet.map(r => ({
         id: r.id, fecha: r.fecha, valor: r.valor, nota: r.nota, ts: r.timestamp
       }));
-      const ingresos = dataIng.map(i => ({
+      const ingresos: Ingreso[] = dataIng.map(i => ({
         id: i.id, fecha: i.fecha, valor: i.valor, nota: i.nota, ts: i.timestamp
       }));
 
       set({ historial, retiros, ingresos, cargando: false });
 
-      // 2. Sincronizar en segundo plano (silencioso)
+      // 2. Sincronizar en segundo plano (silencioso - Mezclando datos con sanación)
       (async () => {
         try {
           const { data: cloudHist, error: errH } = await supabase.from('historial').select('*');
           const { data: cloudRet,  error: errR } = await supabase.from('retiros').select('*');
+          const { data: cloudIng,  error: errI } = await supabase.from('ingresos').select('*');
 
-          if (!errH && cloudHist && cloudHist.length > 0) {
+          let finalHist = [...historial];
+          let finalRet  = [...retiros];
+          let finalIng  = [...ingresos];
+
+          if (!errH && cloudHist) {
             const hCloud = cloudHist.map(h => h.datos_json);
-            set({ historial: hCloud });
+            const mapHist = new Map();
+            hCloud.forEach(h => mapHist.set(h.fecha, h));
+            historial.forEach(h => mapHist.set(h.fecha, h));
+            finalHist = Array.from(mapHist.values()).sort((a, b) => b.fecha.localeCompare(a.fecha));
           }
 
-          if (!errR && cloudRet && cloudRet.length > 0) {
-            const rCloud = cloudRet.map(r => ({
+          // --- Sanación de Retiros e Ingresos desde el Historial ---
+          finalHist.forEach((h: any) => {
+             if (h.retiro && h.retiro > 0) {
+                const existe = finalRet.some(r => r.fecha === h.fecha && Math.abs(r.valor - h.retiro) < 0.1);
+                if (!existe) {
+                  const nuevo: Retiro = { id: undefined, fecha: h.fecha, valor: h.retiro, nota: h.notaRetiro || 'Recuperado de historial', ts: h.ts || Date.now() };
+                  finalRet.push(nuevo);
+                }
+             }
+             if (h.ingreso && h.ingreso > 0) {
+                const existe = finalIng.some(i => i.fecha === h.fecha && Math.abs(i.valor - h.ingreso) < 0.1);
+                if (!existe) {
+                  const nuevo: Ingreso = { id: undefined, fecha: h.fecha, valor: h.ingreso, nota: h.notaIngreso || 'Recuperado de historial', ts: h.ts || Date.now() };
+                  finalIng.push(nuevo);
+                }
+             }
+          });
+
+          if (!errR && cloudRet) {
+            const rCloud: Retiro[] = cloudRet.map(r => ({
               id: r.id, fecha: r.fecha, valor: r.valor, nota: r.nota, ts: r.timestamp
             }));
-            set({ retiros: rCloud });
+            rCloud.forEach(rc => {
+               const duplicado = finalRet.some(r => r.fecha === rc.fecha && Math.abs(r.valor - rc.valor) < 0.1);
+               if (!duplicado) finalRet.push(rc);
+            });
           }
 
-          const { data: cloudIng, error: errI } = await supabase.from('ingresos').select('*');
-          if (!errI && cloudIng && cloudIng.length > 0) {
-            const iCloud = cloudIng.map(i => ({
+          if (!errI && cloudIng) {
+            const iCloud: Ingreso[] = cloudIng.map(i => ({
               id: i.id, fecha: i.fecha, valor: i.valor, nota: i.nota, ts: i.timestamp
             }));
-            set({ ingresos: iCloud });
+            iCloud.forEach(ic => {
+               const duplicado = finalIng.some(i => i.fecha === ic.fecha && Math.abs(i.valor - ic.valor) < 0.1);
+               if (!duplicado) finalIng.push(ic);
+            });
           }
+
+          set({ 
+             historial: finalHist, 
+             retiros: finalRet.sort((a, b) => (b.ts || 0) - (a.ts || 0)), 
+             ingresos: finalIng.sort((a, b) => (b.ts || 0) - (a.ts || 0)) 
+          });
+
         } catch (e) {
           console.log('Sync historial cloud falló (offline):', e);
         }

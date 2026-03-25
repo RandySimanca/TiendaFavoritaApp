@@ -4,7 +4,8 @@ import {
   StyleSheet, Alert, KeyboardAvoidingView, Platform, Modal,
   ActivityIndicator, SafeAreaView
 } from 'react-native';
-import { useNavigation } from 'expo-router';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useNavigation, useLocalSearchParams } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -28,6 +29,7 @@ import { PDFService }    from '../../utils/pdfService';
 export default function HoyScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
   const scrollRef = useRef<ScrollView>(null);
+  const { fecha: fechaParam } = useLocalSearchParams();
   const esAdmin = useAuthStore(s => s.esDuena());
   const rol = useAuthStore(s => s.rol);
   const perfil = useAuthStore(s => s.perfil);
@@ -46,10 +48,11 @@ export default function HoyScreen() {
   const [compraTotal, setCompraTotal] = useState('');
   const [guardandoStore, setGuardandoStore] = useState(false);
   const [perfilVisible, setPerfilVisible] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
   useEffect(() => {
-    cargarDiaActual();
-  }, []);
+    cargarDiaActual(fechaParam as string);
+  }, [fechaParam]);
 
   useEffect(() => {
     const res = calcularDia(useDiaStore.getState());
@@ -113,6 +116,16 @@ export default function HoyScreen() {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Confirmar', onPress: () => limpiar(cierre) }
     ]);
+  };
+
+  const onFechaChange = (event: any, selectedDate?: Date) => {
+    setShowPicker(false);
+    if (selectedDate) {
+      const nuevaFecha = selectedDate.toISOString().slice(0, 10);
+      setFecha(nuevaFecha);
+      cargarDiaActual(nuevaFecha);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
 
   const renderFilas = (tipo: any, placeholder: string, color: any) => {
@@ -215,17 +228,24 @@ export default function HoyScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={estilos.fechaRow}>
-          <Text style={estilos.fechaLabel}>Fecha:</Text>
-          <TextInput
-            style={estilos.fechaInput}
-            value={fecha}
-            onChangeText={v => setFecha(v)}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={Colors.gray}
-            keyboardType="numeric"
-            maxLength={10}
-          />
-          <TouchableOpacity style={estilos.fechaHoyBtn} onPress={() => setFecha(new Date().toISOString().slice(0, 10))}>
+          <Text style={estilos.fechaLabel}>📅 Fecha de trabajo:</Text>
+          <TouchableOpacity style={estilos.fechaSelect} onPress={() => setShowPicker(true)}>
+            <Text style={estilos.fechaTexto}>{fecha || 'Seleccionar...'}</Text>
+            <MaterialCommunityIcons name="calendar-edit" size={18} color={Colors.blue} />
+          </TouchableOpacity>
+          {showPicker && (
+            <DateTimePicker
+              value={new Date(fecha + 'T12:00:00')}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onFechaChange}
+            />
+          )}
+          <TouchableOpacity style={estilos.fechaHoyBtn} onPress={() => {
+            const hoy = new Date().toISOString().slice(0, 10);
+            setFecha(hoy);
+            cargarDiaActual(hoy);
+          }}>
             <Text style={estilos.fechaHoyTxt}>Hoy</Text>
           </TouchableOpacity>
         </View>
@@ -312,14 +332,26 @@ export default function HoyScreen() {
           {renderFilas('creditos', 'Nombre cliente...', Colors.blue)}
         </CardSection> */}
 
-        <CardSection icono="💵" titulo="PASO 3 — Pagos recibidos (efectivo)" color="purple">
+        <CardSection 
+          icono="💵" 
+          titulo="PASO 3 — Pagos recibidos (efectivo)" 
+          color="purple"
+          expandible
+          inicialmenteExpandido={false}
+        >
           <View style={estilos.notaCont}>
             <Text style={estilos.notaTexto}>⚠️ Clientes que pagan deuda en EFECTIVO. Entra a caja pero NO es venta.</Text>
           </View>
           {renderFilas('pagos', 'Nombre cliente...', Colors.purple)}
         </CardSection>
 
-        <CardSection icono="📲" titulo="PASO 4 — Transferencias" color="teal">
+        <CardSection 
+          icono="📲" 
+          titulo="PASO 4 — Transferencias" 
+          color="teal"
+          expandible
+          inicialmenteExpandido={false}
+        >
           <View style={estilos.notaContTeal}>
             <Text style={estilos.notaTextoTeal}>📲 Dinero que llega al celular/cuenta — NO entra a caja física.</Text>
           </View>
@@ -328,12 +360,44 @@ export default function HoyScreen() {
           {renderFilas('transferenciaVentas', 'Cliente / producto...', Colors.teal)}
 
           <View style={{ height: 20 }} />
-
           <Text style={estilos.subSeccion}>PAGOS de deuda por transferencia:</Text>
           {renderFilas('transferenciaPagos', 'Nombre cliente...', Colors.teal)}
         </CardSection>
 
-        <CardSection icono="🔒" titulo="PASO 5 — Plata al CERRAR" color="green">
+        <CardSection 
+          icono="👤" 
+          titulo="PASO 5 — Préstamos a empleados" 
+          color="orange"
+          expandible
+          inicialmenteExpandido={false}
+        >
+          <View style={estilos.notaCont}>
+            <Text style={estilos.notaTexto}>👤 Dinero prestado a empleados hoy. NO afecta la venta pero sale de caja.</Text>
+          </View>
+          <View style={estilos.inputGroup}>
+            <Text style={estilos.inputLabel}>Valor del préstamo:</Text>
+            <Text style={estilos.prefijo}>$</Text>
+            <TextInput
+              style={estilos.inputNumerico}
+              placeholder="0"
+              keyboardType="numeric"
+              value={formatInput(useDiaStore.getState().prestamo)}
+              onChangeText={(v) => useDiaStore.getState().setPrestamo(parseInput(v))}
+              textAlign="right"
+            />
+          </View>
+          <View style={estilos.inputGroup}>
+            <Text style={estilos.inputLabel}>Nombre del empleado:</Text>
+            <TextInput
+              style={estilos.inputNotaRetiro}
+              placeholder="Ej: Juan Pérez"
+              value={useDiaStore.getState().notaPrestamo}
+              onChangeText={useDiaStore.getState().setNotaPrestamo}
+            />
+          </View>
+        </CardSection>
+
+        <CardSection icono="🔒" titulo="PASO 6 — Plata al CERRAR" color="green">
           <View style={estilos.inputGroup}>
             <Text style={estilos.inputLabel}>Plata contada al cerrar:</Text>
             <Text style={estilos.prefijo}>$</Text>
@@ -369,7 +433,16 @@ export default function HoyScreen() {
           )}
         </CardSection>
 
-        {resultado && <ResultadoDia base={base} cierre={cierre} retiro={retiro} resultado={resultado} esDuena={esAdmin} />}
+        {resultado && (
+          <ResultadoDia 
+            base={base} 
+            cierre={cierre} 
+            retiro={retiro} 
+            prestamo={useDiaStore.getState().prestamo} 
+            resultado={resultado} 
+            esDuena={esAdmin} 
+          />
+        )}
 
         {esAdmin && (
           <View style={estilos.accionBtns}>
@@ -395,9 +468,10 @@ const estilos = StyleSheet.create({
   rolTexto: { color: Colors.white, fontSize: 11, fontWeight: '800' },
   scroll:    { flex: 1, backgroundColor: Colors.bg },
   contenido: { padding: 12 },
-  fechaRow: { backgroundColor: Colors.white, borderRadius: 12, padding: 11, marginBottom: 11, flexDirection: 'row', alignItems: 'center', gap: 8, elevation: 2 },
+  fechaRow: { backgroundColor: Colors.white, borderRadius: 12, padding: 11, marginBottom: 11, flexDirection: 'row', alignItems: 'center', gap: 10, elevation: 2 },
   fechaLabel:  { fontWeight: '800', fontSize: 13, color: Colors.gray },
-  fechaInput: { flex: 1, fontSize: 14, fontWeight: '700', color: Colors.dark, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 9, backgroundColor: Colors.grayLight },
+  fechaSelect: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1.5, borderColor: Colors.border, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 12, backgroundColor: Colors.grayLight },
+  fechaTexto: { fontSize: 14, fontWeight: '700', color: Colors.blueDark },
   fechaHoyBtn: { backgroundColor: Colors.green, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 11 },
   fechaHoyTxt: { color: Colors.white, fontSize: 12, fontWeight: '900' },
   // Estilos Base Requeridos

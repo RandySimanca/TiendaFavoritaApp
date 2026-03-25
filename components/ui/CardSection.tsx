@@ -3,9 +3,10 @@
 // Equivalente a .card + .card-head del HTML original
 // ═══════════════════════════════════════════════════
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Gradients } from '../../constants/Colors';
 
 type ColorClave = keyof typeof Gradients;
@@ -16,26 +17,49 @@ interface Props {
   color: ColorClave;
   badge?: string | number;
   children: React.ReactNode;
+  expandible?: boolean;
+  inicialmenteExpandido?: boolean;
 }
 
-export function CardSection({ icono, titulo, color, badge, children }: Props) {
+export function CardSection({ 
+  icono, titulo, color, badge, children, 
+  expandible = false, inicialmenteExpandido = true 
+}: Props) {
+  const [abierto, setAbierto] = useState(expandible ? inicialmenteExpandido : true);
   const gradiente = Gradients[color] as [string, string];
+
+  const toggle = () => {
+    if (expandible) {
+      setAbierto(!abierto);
+    }
+  };
+
+  const Content = expandible ? TouchableOpacity : View;
 
   return (
     <View style={estilos.card}>
       {/* Encabezado con gradiente de color */}
-      <LinearGradient colors={gradiente} style={estilos.head} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-        <Text style={estilos.icono}>{icono}</Text>
-        <Text style={estilos.titulo}>{titulo}</Text>
-        {badge !== undefined && (
-          <View style={estilos.badge}>
-            <Text style={estilos.badgeTexto}>{badge}</Text>
-          </View>
-        )}
-      </LinearGradient>
+      <Content activeOpacity={0.8} onPress={toggle}>
+        <LinearGradient colors={gradiente} style={estilos.head} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+          <Text style={estilos.icono}>{icono}</Text>
+          <Text style={estilos.titulo}>{titulo}</Text>
+          {badge !== undefined && (
+            <View style={estilos.badge}>
+              <Text style={estilos.badgeTexto}>{badge}</Text>
+            </View>
+          )}
+          {expandible && (
+            <MaterialCommunityIcons 
+              name={abierto ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color={Colors.white} 
+            />
+          )}
+        </LinearGradient>
+      </Content>
 
       {/* Cuerpo blanco */}
-      <View style={estilos.body}>{children}</View>
+      {abierto && <View style={estilos.body}>{children}</View>}
     </View>
   );
 }

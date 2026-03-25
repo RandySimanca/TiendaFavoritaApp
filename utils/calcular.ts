@@ -22,6 +22,8 @@ export interface EstadoDia {
   notaRetiro: string;
   ingreso: number;
   notaIngreso: string;
+  prestamo: number;
+  notaPrestamo: string;
   facturas: Factura[];
   gastos: FilaDato[];
   creditos: FilaDato[];
@@ -78,10 +80,10 @@ export function calcularDia(estado: EstadoDia): ResultadoCuadre {
   const totalTv       = sumarFilas(transferenciaVentas);
   const totalTp       = sumarFilas(transferenciaPagos);
 
-  // ventasEfectivo = (cierre + retiro) - base - ingreso + compras + gastos + creditos - pagos
-  // Se suma 'retiro' porque es dinero que salió de la venta pero ya no está en el 'cierre'.
+  // ventasEfectivo = (cierre + retiro + prestamo) - base - ingreso + compras + gastos + creditos - pagos
+  // Se suma 'retiro' y 'prestamo' porque es dinero que salió de la venta pero ya no está en el 'cierre'.
   // Se resta 'pagos' porque es dinero que entró a caja pero NO es venta de hoy (es cobro de deuda).
-  const ventasEfectivo = (cierre + retiro) - base - ingreso + compras + totalGastos + totalCreditos - totalPagos;
+  const ventasEfectivo = (cierre + retiro + (estado.prestamo || 0)) - base - ingreso + compras + totalGastos + totalCreditos - totalPagos;
 
   // Total = solo ventas en efectivo.
   // Las transferencias (totalTv, totalTp) NO se suman porque ese dinero está en el banco, no en la caja.
@@ -104,16 +106,20 @@ export function calcularDia(estado: EstadoDia): ResultadoCuadre {
 
 // Agrupa un historial por mes y devuelve resumen
 export function resumenPorMes(historial: any[]) {
-  const meses: Record<string, { ventas: number; dias: number }> = {};
+  const meses: Record<string, { ventas: number; compras: number; dias: number }> = {};
   historial.forEach(d => {
     if (!d.fecha) return;
     const clave = d.fecha.substring(0, 7); // YYYY-MM
-    if (!meses[clave]) meses[clave] = { ventas: 0, dias: 0 };
+    if (!meses[clave]) meses[clave] = { ventas: 0, compras: 0, dias: 0 };
     let total = d.total || 0;
+    let compras = d.compras || 0;
     if (total === 0 && (d.cierre > 0 || d.base > 0)) {
-      total = calcularDia(d).total;
+      const res = calcularDia(d);
+      total = res.total;
+      compras = res.compras;
     }
     meses[clave].ventas += Math.max(0, total);
+    meses[clave].compras += compras;
     meses[clave].dias++;
   });
   return meses;

@@ -5,10 +5,9 @@
 // ═══════════════════════════════════════════════════
 
 import React, { useState } from 'react';
-import {
-  ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert, Platform,
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert, Platform,
 } from 'react-native';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +21,7 @@ import { PDFService } from '../../utils/pdfService';
 
 export default function HistorialScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
+  const router = useRouter();
   const { historial, eliminarDia } = useHistorialStore();
   const esAdmin = useAuthStore(s => s.esDuena());
   // Índice del día expandido (-1 significa ninguno)
@@ -113,6 +113,21 @@ export default function HistorialScreen() {
           </View>
         )}
 
+        {/* Prestamo del día (si hay) */}
+        {(d.prestamo || 0) > 0 && (
+          <View style={[estilos.detTotalBox, { backgroundColor: '#ffedd5', marginTop: 4 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[estilos.detTotalLabel, { color: '#9a3412' }]}>👤 Préstamo empleado:</Text>
+              {d.notaPrestamo ? (
+                <Text style={{ fontSize: 11, color: '#c2410c', fontWeight: '600', marginTop: 2 }}>
+                  👤 {d.notaPrestamo}
+                </Text>
+              ) : null}
+            </View>
+            <Text style={[estilos.detTotalValor, { color: '#9a3412' }]}>{fmt(d.prestamo || 0)}</Text>
+          </View>
+        )}
+
         {/* Botón eliminar solo para el admin */}
         {esAdmin && (
           <TouchableOpacity
@@ -165,7 +180,8 @@ export default function HistorialScreen() {
         return (
           <LinearGradient key={clave} colors={['#1a5e2a', '#2d8a3e']} style={estilos.mesBloq} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
             <Text style={estilos.mesNombre}>📆 {nomMes.toUpperCase()} — {datos.dias} día{datos.dias !== 1 ? 's' : ''}</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
               <View>
                 <Text style={estilos.mesEtiq}>💰 Total vendido</Text>
                 <Text style={estilos.mesValor}>{fmt(datos.ventas)}</Text>
@@ -173,6 +189,17 @@ export default function HistorialScreen() {
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={estilos.mesEtiq}>📈 Utilidades 15%</Text>
                 <Text style={[estilos.mesValor, { color: '#ffe066' }]}>{fmt(datos.ventas * 0.15)}</Text>
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', paddingTop: 10 }}>
+              <View>
+                <Text style={estilos.mesEtiq}>📊 Promedio de venta</Text>
+                <Text style={[estilos.mesValor, { fontSize: 17 }]}>{fmt(datos.ventas / datos.dias)}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={estilos.mesEtiq}>🛒 Total compras</Text>
+                <Text style={[estilos.mesValor, { fontSize: 17, color: '#bbf7d0' }]}>{fmt(datos.compras)}</Text>
               </View>
             </View>
           </LinearGradient>
@@ -204,8 +231,19 @@ export default function HistorialScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={estilos.histFecha}>📅 {fechaLegible(d.fecha)}</Text>
               </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={estilos.histTotal}>{fmt(montoTotal)}</Text>
+                
+                <TouchableOpacity 
+                   style={estilos.btnMiniEdit} 
+                   onPress={(e) => {
+                     e.stopPropagation();
+                     router.push({ pathname: '/(drawer)/hoy', params: { fecha: d.fecha } });
+                   }}
+                >
+                  <Text style={{ fontSize: 13 }}>✏️</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity 
                    style={estilos.btnMiniExportar} 
                    onPress={(e) => {
@@ -287,5 +325,12 @@ const estilos = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+  },
+  btnMiniEdit: {
+    backgroundColor: '#eff6ff',
+    padding: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
   },
 });

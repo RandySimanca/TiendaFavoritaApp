@@ -8,11 +8,12 @@ import { calcularDia, EstadoDia, ResultadoCuadre, Factura, FilaDato } from '../u
 import { 
   dbSetBorrador, 
   dbGetBorrador, 
-  dbDeleteBorrador 
+  dbDeleteBorrador,
+  dbGetHistorial
 } from '../utils/database';
 import { supabase } from '../utils/supabase';
 
-const CLAVE_DIA = 'tf_dia_actual';
+// (Clave dinámica basada en fecha se usa ahora)
 
 // Estado inicial de un día en blanco
 const estadoBlanco = (): EstadoDia => ({
@@ -22,6 +23,8 @@ const estadoBlanco = (): EstadoDia => ({
   notaRetiro: '',
   ingreso: 0,
   notaIngreso: '',
+  prestamo: 0,
+  notaPrestamo: '',
   facturas: [],
   gastos: [{ nombre: '', valor: 0 }],
   creditos: [{ nombre: '', valor: 0 }],
@@ -45,6 +48,8 @@ interface DiaStore extends EstadoDia {
   setNotaRetiro: (v: string) => void;
   setIngreso: (v: number) => void;
   setNotaIngreso: (v: string) => void;
+  setPrestamo: (v: number) => void;
+  setNotaPrestamo: (v: string) => void;
 
   // Facturas del día
   agregarFactura: (f: Factura) => void;
@@ -60,8 +65,8 @@ interface DiaStore extends EstadoDia {
   calcular: () => void;
   // Guarda borrador en SQLite y Cloud
   autoGuardar: () => Promise<void>;
-  // Carga el borrador guardado al abrir la app
-  cargarDiaActual: () => Promise<void>;
+  // Carga el borrador guardado al abrir la app o al cambiar fecha
+  cargarDiaActual: (fechaManual?: string) => Promise<void>;
   // Limpia el formulario para un nuevo día (opcionalmente hereda base)
   limpiar: (nuevaBase?: number) => Promise<void>;
   // Captura el estado completo para guardar en historial
@@ -92,6 +97,8 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
   setNotaRetiro: (notaRetiro) => { set({ notaRetiro }); get().autoGuardar(); },
   setIngreso: (ingreso) => { set({ ingreso }); get().calcular(); get().autoGuardar(); },
   setNotaIngreso: (notaIngreso) => { set({ notaIngreso }); get().autoGuardar(); },
+  setPrestamo: (prestamo) => { set({ prestamo }); get().calcular(); get().autoGuardar(); },
+  setNotaPrestamo: (notaPrestamo) => { set({ notaPrestamo }); get().autoGuardar(); },
 
   agregarFactura: (f) => {
     set(s => ({ facturas: [...s.facturas, f] }));
@@ -135,6 +142,7 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
     const resultado = calcularDia({
       base: s.base, cierre: s.cierre, retiro: s.retiro, notaRetiro: s.notaRetiro,
       ingreso: s.ingreso, notaIngreso: s.notaIngreso,
+      prestamo: s.prestamo, notaPrestamo: s.notaPrestamo,
       facturas: s.facturas,
       gastos: s.gastos, creditos: s.creditos, pagos: s.pagos,
       transferenciaVentas: s.transferenciaVentas,
@@ -144,48 +152,58 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
   },
 
   autoGuardar: async () => {
-    const estado = get().capturarEstado();
+    const s = get();
+    const clave = `borrador_${s.fecha}`;
+    const estado = s.capturarEstado();
     try {
-      // 1. Local (Prioritario e instantáneo)
-      await dbSetBorrador(CLAVE_DIA, estado);
-      
-      // 2. Cloud (Segundo plano - silencioso)
+      await dbSetBorrador(clave, estado);
       supabase.from('borradores').upsert({
-        key: CLAVE_DIA,
+        key: clave,
         datos_json: estado,
         updated_at: new Date().toISOString()
-      }).then(({ error }) => {
-        if (error) console.log('Sync borrador cloud falló (offline):', error.message);
-      });
-    } catch (error) {
-      console.error('Error auto-guardando borrador local:', error);
-    }
+      }).then();
+    } catch (error) {}
   },
 
-  cargarDiaActual: async () => {
+  cargarDiaActual: async (fechaManual?: string) => {
+    const f = fechaManual || get().fecha;
+    const clave = `borrador_${f}`;
     try {
-      // 1. Cargar local (rápido para la UI)
-      const local = await dbGetBorrador(CLAVE_DIA);
+      set({ cargando: true });
+      // 1. Buscar en borrador local primero
+      const local = await dbGetBorrador(clave);
       if (local) {
         get()._aplicarDatos(local);
+        set({ cargando: false });
+        // No seguimos si hay borrador (es la verdad mas reciente)
+        return;
+      }
+      
+      // 2. Si no hay borrador, buscar en Historial Real (Día cerrado)
+      const dataHist = await dbGetHistorial();
+      const guardado = dataHist.find(h => {
+        try {
+          const d = JSON.parse(h.datos_json);
+          return d.fecha === f;
+        } catch(e) { return false; }
+      });
+
+      if (guardado) {
+        get()._aplicarDatos(JSON.parse(guardado.datos_json));
+        set({ cargando: false });
+        return;
+      }
+
+      // 3. Buscar en la nube (borrador remoto)
+      const { data: cloud } = await supabase.from('borradores').select('*').eq('key', clave).single();
+      if (cloud) {
+        get()._aplicarDatos(cloud.datos_json);
+      } else {
+        // 4. Día nuevo completamente blanco
+        set({ ...estadoBlanco(), fecha: f });
       }
       set({ cargando: false });
-      
-      // 2. Cargar cloud en segundo plano para ver si hay algo más reciente
-      (async () => {
-        try {
-          const { data: cloud, error } = await supabase.from('borradores').select('*').eq('key', CLAVE_DIA).single();
-          if (!error && cloud) {
-            // Si el cloud tiene datos, comparamos o aplicamos.
-            get()._aplicarDatos(cloud.datos_json);
-          }
-        } catch (e) {
-          console.log('Error cargando borrador cloud (offline):', e);
-        }
-      })();
-
     } catch (error) {
-      console.error('Error cargando borrador local:', error);
       set({ cargando: false });
     }
   },
@@ -200,6 +218,8 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
       notaRetiro:  d.notaRetiro  || '',
       ingreso:     d.ingreso     || 0,
       notaIngreso: d.notaIngreso || '',
+      prestamo:     d.prestamo    || 0,
+      notaPrestamo: d.notaPrestamo || '',
       facturas: (d.facturas || []).map((f: any, i: number) => ({
         id: i + 1, thumb: '', proveedor: f.proveedor, resumen: f.resumen, total: f.total
       })),
@@ -213,24 +233,26 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
   },
 
   limpiar: async (nuevaBase?: number) => {
+    const f = new Date().toISOString().slice(0, 10);
+    const clave = `borrador_${f}`;
     set({ 
-      fecha: new Date().toISOString().slice(0, 10), 
+      fecha: f, 
       ...estadoBlanco(), 
       base: nuevaBase ?? 0,
       resultado: null 
     });
     try { 
-      // Local primero
-      await dbDeleteBorrador(CLAVE_DIA); 
-      // Cloud después (segundo plano)
-      supabase.from('borradores').delete().eq('key', CLAVE_DIA).then();
+      await dbDeleteBorrador(clave); 
+      supabase.from('borradores').delete().eq('key', clave).then();
     } catch (error) {}
   },
 
   suscribirCambios: () => {
     supabase.channel('borradores-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'borradores', filter: `key=eq.${CLAVE_DIA}` }, () => {
-        get().cargarDiaActual();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'borradores' }, (payload: any) => {
+        if (payload.new && payload.new.key === `borrador_${get().fecha}`) {
+          get().cargarDiaActual();
+        }
       })
       .subscribe();
   },
@@ -272,6 +294,8 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
       notaRetiro:  s.notaRetiro,
       ingreso:     s.ingreso,
       notaIngreso: s.notaIngreso,
+      prestamo:     s.prestamo,
+      notaPrestamo: s.notaPrestamo,
       compras:  s.facturas.reduce((acc, f) => acc + f.total, 0),
       facturas: s.facturas.map(f => ({ proveedor: f.proveedor, resumen: f.resumen, total: f.total })),
       gastos:              s.gastos,

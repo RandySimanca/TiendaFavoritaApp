@@ -21,18 +21,23 @@ import { useRouter } from 'expo-router';
 export default function RetirosScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
   const esAdmin = useAuthStore(s => s.esDuena());
-  const { retiros, ingresos, eliminarRetiro, eliminarIngreso } = useHistorialStore();
+  const { retiros, ingresos, historial, eliminarRetiro, eliminarIngreso } = useHistorialStore();
   const router = useRouter();
 
   // Si un trabajador llega aquí, redirigir (doble protección)
   if (!esAdmin) {
-    router.replace('/(tabs)/hoy');
+    router.replace('/(drawer)/hoy');
     return null;
   }
 
   // Suma totales
   const totalRetirado = retiros.reduce((s, r) => s + (r.valor || 0), 0);
   const totalIngresado = ingresos.reduce((s, i) => s + (i.valor || 0), 0);
+
+  // Préstamos del mes en curso
+  const mesActual = new Date().toISOString().slice(0, 7);
+  const prestamosMes = historial.filter(d => d.fecha && d.fecha.startsWith(mesActual) && (d.prestamo || 0) > 0);
+  const totalPrestamosMes = prestamosMes.reduce((s, d) => s + (d.prestamo || 0), 0);
 
   // Formatea la fecha en texto legible
   function fechaLegible(fecha: string) {
@@ -69,7 +74,7 @@ export default function RetirosScreen() {
       </View>
 
       {/* Resumen Totales */}
-      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         <LinearGradient colors={['#14532d', '#16a34a']} style={[estilos.totalBox, { flex: 1 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
           <Text style={estilos.totalLabel}>Retiros</Text>
           <Text style={estilos.totalValorSmall}>{fmt(totalRetirado)}</Text>
@@ -77,6 +82,10 @@ export default function RetirosScreen() {
         <LinearGradient colors={['#1e3a8a', '#2563eb']} style={[estilos.totalBox, { flex: 1 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
           <Text style={estilos.totalLabel}>Ingresos</Text>
           <Text style={estilos.totalValorSmall}>{fmt(totalIngresado)}</Text>
+        </LinearGradient>
+        <LinearGradient colors={['#9a3412', '#ea580c']} style={[estilos.totalBox, { flex: 1 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <Text style={estilos.totalLabel}>Préstamos</Text>
+          <Text style={estilos.totalValorSmall}>{fmt(totalPrestamosMes)}</Text>
         </LinearGradient>
       </View>
 
@@ -131,6 +140,29 @@ export default function RetirosScreen() {
         ))
       )}
 
+      {/* Sección Préstamos */}
+      <View style={{ marginTop: 20 }} />
+      <Text style={estilos.seccionTitulo}>👤 Préstamos a Empleados (Mes Actual)</Text>
+      {prestamosMes.length === 0 ? (
+        <View style={estilos.vacio}>
+          <Text style={estilos.vacioTexto}>No hay préstamos registrados este mes.</Text>
+        </View>
+      ) : (
+        prestamosMes.map((d, i) => (
+          <View key={`pres-${i}`} style={estilos.item}>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.itemFecha}>{fechaLegible(d.fecha)}</Text>
+              <Text style={d.notaPrestamo ? estilos.itemNotaPres : estilos.itemSub}>
+                {d.notaPrestamo ? `👤 ${d.notaPrestamo}` : 'Préstamo empleado'}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={estilos.itemValorPres}>{fmt(d.prestamo)}</Text>
+            </View>
+          </View>
+        ))
+      )}
+
       <View style={{ height: 30 }} />
       </ScrollView>
     </SafeAreaView>
@@ -162,8 +194,10 @@ const estilos = StyleSheet.create({
   itemSub:   { fontSize: 11, color: Colors.gray, fontWeight: '700', marginTop: 1 },
   itemNota:  { fontSize: 11, color: '#92400e', fontWeight: '700', marginTop: 1 },
   itemNotaIng: { fontSize: 11, color: '#166534', fontWeight: '700', marginTop: 1 },
+  itemNotaPres: { fontSize: 11, color: '#c2410c', fontWeight: '700', marginTop: 1 },
   itemValorRet: { fontSize: 16, fontWeight: '900', color: Colors.red },
   itemValorIng: { fontSize: 16, fontWeight: '900', color: Colors.green },
+  itemValorPres: { fontSize: 16, fontWeight: '900', color: '#c2410c' },
   btnDel: { backgroundColor: Colors.redLight, borderRadius: 8, width: 26, height: 26, alignItems: 'center', justifyContent: 'center' },
 
   // Pantalla vacía
