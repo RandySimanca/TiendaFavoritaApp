@@ -180,7 +180,7 @@ export default function HistorialScreen() {
       })}
 
       {/* Lista de días individuales */}
-      {historial.map((d, i) => {
+      {[...historial].sort((a,b) => b.fecha.localeCompare(a.fecha)).map((d, i) => {
         // Recuperación de datos para registros guardados sin campos calculados
         let total = d.total || 0;
         let vEfectivo = d.ventasEf || 0;
