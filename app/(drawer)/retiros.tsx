@@ -74,7 +74,7 @@ export default function RetirosScreen() {
       </View>
 
       {/* Resumen Totales */}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
         <LinearGradient colors={['#14532d', '#16a34a']} style={[estilos.totalBox, { flex: 1 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
           <Text style={estilos.totalLabel}>Retiros</Text>
           <Text style={estilos.totalValorSmall}>{fmt(totalRetirado)}</Text>
@@ -83,11 +83,11 @@ export default function RetirosScreen() {
           <Text style={estilos.totalLabel}>Ingresos</Text>
           <Text style={estilos.totalValorSmall}>{fmt(totalIngresado)}</Text>
         </LinearGradient>
-        <LinearGradient colors={['#9a3412', '#ea580c']} style={[estilos.totalBox, { flex: 1 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <Text style={estilos.totalLabel}>Préstamos</Text>
-          <Text style={estilos.totalValorSmall}>{fmt(totalPrestamosMes)}</Text>
-        </LinearGradient>
       </View>
+      <LinearGradient colors={['#9a3412', '#ea580c']} style={[estilos.totalBox, { marginBottom: 16 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+        <Text style={estilos.totalLabel}>Préstamos a empleados (Este Mes)</Text>
+        <Text style={estilos.totalValorSmall}>{fmt(totalPrestamosMes)}</Text>
+      </LinearGradient>
 
       {/* Sección Retiros */}
       <Text style={estilos.seccionTitulo}>💼 Historial de Retiros</Text>

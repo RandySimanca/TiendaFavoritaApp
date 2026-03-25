@@ -35,7 +35,7 @@ export default function HoyScreen() {
   const perfil = useAuthStore(s => s.perfil);
 
   const {
-    fecha, base, cierre, retiro, notaRetiro, ingreso, notaIngreso,
+    fecha, base, cierre, retiro, notaRetiro, ingreso, notaIngreso, prestamo,
     facturas, gastos, creditos, pagos, transferenciaVentas, transferenciaPagos,
     setBase, setCierre, setRetiro, setIngreso, setFecha,
     agregarFactura, eliminarFactura, procesarFacturaIA,
@@ -57,7 +57,7 @@ export default function HoyScreen() {
   useEffect(() => {
     const res = calcularDia(useDiaStore.getState());
     setResultado(res);
-  }, [base, cierre, retiro, ingreso, facturas, gastos, creditos, pagos, transferenciaVentas, transferenciaPagos]);
+  }, [base, cierre, retiro, ingreso, prestamo, facturas, gastos, creditos, pagos, transferenciaVentas, transferenciaPagos]);
 
   const handleTomarFoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
