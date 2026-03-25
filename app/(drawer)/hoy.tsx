@@ -35,9 +35,9 @@ export default function HoyScreen() {
   const perfil = useAuthStore(s => s.perfil);
 
   const {
-    fecha, base, cierre, retiro, notaRetiro, ingreso, notaIngreso, prestamo,
+    fecha, base, cierre, retiro, notaRetiro, ingreso, notaIngreso, prestamo, notaPrestamo,
     facturas, gastos, creditos, pagos, transferenciaVentas, transferenciaPagos,
-    setBase, setCierre, setRetiro, setIngreso, setFecha,
+    setBase, setCierre, setRetiro, setIngreso, setFecha, setPrestamo, setNotaPrestamo,
     agregarFactura, eliminarFactura, procesarFacturaIA,
     limpiar, cargarDiaActual
   } = useDiaStore();
@@ -381,8 +381,8 @@ export default function HoyScreen() {
               style={estilos.inputNumerico}
               placeholder="0"
               keyboardType="numeric"
-              value={formatInput(useDiaStore.getState().prestamo)}
-              onChangeText={(v) => useDiaStore.getState().setPrestamo(parseInput(v))}
+              value={formatInput(prestamo)}
+              onChangeText={(v) => setPrestamo(parseInput(v))}
               textAlign="right"
             />
           </View>
@@ -391,8 +391,8 @@ export default function HoyScreen() {
             <TextInput
               style={estilos.inputNotaRetiro}
               placeholder="Ej: Juan Pérez"
-              value={useDiaStore.getState().notaPrestamo}
-              onChangeText={useDiaStore.getState().setNotaPrestamo}
+              value={notaPrestamo}
+              onChangeText={setNotaPrestamo}
             />
           </View>
         </CardSection>
@@ -438,7 +438,8 @@ export default function HoyScreen() {
             base={base} 
             cierre={cierre} 
             retiro={retiro} 
-            prestamo={useDiaStore.getState().prestamo} 
+            ingreso={ingreso}
+            prestamo={prestamo} 
             resultado={resultado} 
             esDuena={esAdmin} 
           />

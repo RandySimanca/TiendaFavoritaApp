@@ -262,6 +262,7 @@ export default function HistorialScreen() {
               {d.totalCreditos > 0 && <View style={[estilos.pill, { backgroundColor: Colors.blueLight   }]}><Text style={[estilos.pillTxt, { color: Colors.blue    }]}>👥 {fmt(d.totalCreditos)}</Text></View>}
               {d.totalPagos    > 0 && <View style={[estilos.pill, { backgroundColor: Colors.purpleLight }]}><Text style={[estilos.pillTxt, { color: Colors.purple  }]}>💵 {fmt(d.totalPagos)}</Text></View>}
               {d.totalTv       > 0 && <View style={[estilos.pill, { backgroundColor: Colors.tealLight   }]}><Text style={[estilos.pillTxt, { color: Colors.teal    }]}>📲 {fmt(d.totalTv)}</Text></View>}
+              {(d.prestamo || 0) > 0 && <View style={[estilos.pill, { backgroundColor: '#ffedd5' }]}><Text style={[estilos.pillTxt, { color: '#9a3412' }]}>👤 {fmt(d.prestamo)}</Text></View>}
               <View style={[estilos.pill, { backgroundColor: Colors.greenLight }]}>
                 <Text style={[estilos.pillTxt, { color: Colors.greenDark }]}>💵 {fmt(vEfectivo)}</Text>
               </View>

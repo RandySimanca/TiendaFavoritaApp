@@ -112,10 +112,28 @@ export const PDFService = {
               <span class="total-label">Base al iniciar:</span>
               <span class="total-valor">${fmt(datos.base || 0)}</span>
             </div>
+            ${(datos.ingreso || 0) > 0 ? `
+              <div class="total-fila">
+                <span class="total-label">Ingresos adicionales (+):</span>
+                <span class="total-valor">${fmt(datos.ingreso)}</span>
+              </div>
+            ` : ''}
             <div class="total-fila">
               <span class="total-label">Efectivo al cerrar:</span>
               <span class="total-valor">${fmt(datos.cierre || 0)}</span>
             </div>
+            ${(datos.retiro || 0) > 0 ? `
+              <div class="total-fila">
+                <span class="total-label">Retiro del día (+):</span>
+                <span class="total-valor">${fmt(datos.retiro)}</span>
+              </div>
+            ` : ''}
+            ${(datos.prestamo || 0) > 0 ? `
+              <div class="total-fila">
+                <span class="total-label">Préstamo empleado (+):</span>
+                <span class="total-valor">${fmt(datos.prestamo)}</span>
+              </div>
+            ` : ''}
             <div class="total-fila gran-total">
               <span class="total-label"><strong>TOTAL VENDIDO:</strong></span>
               <span class="total-valor"><strong>${fmt(datos.total || 0)}</strong></span>

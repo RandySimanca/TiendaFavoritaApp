@@ -15,6 +15,7 @@ interface Props {
   base: number;
   cierre: number;
   retiro: number;
+  ingreso: number;
   prestamo: number;
   resultado: ResultadoCuadre;
   esDuena: boolean;
@@ -40,7 +41,7 @@ function Linea({ etiqueta, valor, esTransferencia }: LineaProps) {
   );
 }
 
-export function ResultadoDia({ base, cierre, retiro, prestamo, resultado, esDuena }: Props) {
+export function ResultadoDia({ base, cierre, retiro, ingreso, prestamo, resultado, esDuena }: Props) {
   // Color del bloque según si el resultado es positivo o negativo
   const gradiente: [string, string] = resultado.positivo
     ? ['#14532d', '#16a34a']
@@ -59,6 +60,9 @@ export function ResultadoDia({ base, cierre, retiro, prestamo, resultado, esDuen
         <Linea etiqueta="👤 (+) Préstamo empleado:" valor={fmt(prestamo)} />
       )}
       <Linea etiqueta="(−) Plata al abrir:"  valor={fmt(base)} />
+      {ingreso > 0 && (
+        <Linea etiqueta="(−) Otros ingresos (base):" valor={fmt(ingreso)} />
+      )}
       <Linea etiqueta="(+) Compras pagadas:" valor={fmt(resultado.compras)} />
       <Linea etiqueta="(+) Gastos del día:"  valor={fmt(resultado.totalGastos)} />
       <Linea etiqueta="(+) Créditos fiados:" valor={fmt(resultado.totalCreditos)} />
