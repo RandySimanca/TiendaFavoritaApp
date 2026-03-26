@@ -69,6 +69,15 @@ export default function HistorialScreen() {
         {seccion('📲 Ventas por transferencia', d.transferenciaVentas)}
         {seccion('📲 Pagos deuda transferencia', d.transferenciaPagos)}
 
+        {/* Mensaje explicativo de Pagos en efectivo recibidos */}
+        {(d.totalPagos > 0) && (
+          <View style={{ backgroundColor: '#e0e7ff', padding: 8, borderRadius: 8, marginBottom: 8, flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ color: '#3730a3', fontSize: 12.5, fontWeight: '700', lineHeight: 18 }}>
+              ℹ️ Nota: El TOTAL VENDIDO incluye {fmt(d.totalPagos)} de pagos en efectivo recibidos por ventas fiadas.
+            </Text>
+          </View>
+        )}
+
         {/* Totales del día */}
         <View style={[estilos.detTotalBox, { marginTop: 4 }]}>
           <Text style={estilos.detTotalLabel}>💰 Base al abrir:</Text>
