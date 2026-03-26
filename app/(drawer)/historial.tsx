@@ -217,15 +217,10 @@ export default function HistorialScreen() {
 
       {/* Lista de días individuales */}
       {[...historial].sort((a,b) => b.fecha.localeCompare(a.fecha)).map((d, i) => {
-        // Recuperación de datos para registros guardados sin campos calculados
-        let total = d.total || 0;
-        let vEfectivo = d.ventasEf || 0;
-        
-        if (total === 0 && (d.cierre > 0 || d.base > 0)) {
-          const res = calcularDia(d as any);
-          total = res.total;
-          vEfectivo = res.ventasEfectivo;
-        }
+        // Forzamos recalculo para aplicar la nueva fórmula matemática (que incluye pagos y omite créditos) a los días ya guardados
+        const res = calcularDia(d as any);
+        const total = res.total;
+        const vEfectivo = res.ventasEfectivo;
 
         const montoTotal = Math.max(0, total);
         const abierto = expandido === i;
