@@ -12,6 +12,7 @@ import {
   dbGetHistorial
 } from '../utils/database';
 import { supabase } from '../utils/supabase';
+import { useHistorialStore } from './historialStore';
 
 // (Clave dinámica basada en fecha se usa ahora)
 
@@ -179,17 +180,12 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
         return;
       }
       
-      // 2. Si no hay borrador, buscar en Historial Real (Día cerrado)
-      const dataHist = await dbGetHistorial();
-      const guardado = dataHist.find(h => {
-        try {
-          const d = JSON.parse(h.datos_json);
-          return d.fecha === f;
-        } catch(e) { return false; }
-      });
+      // 2. Si no hay borrador, buscar en Historial Real (Día cerrado) unificado con la nube
+      const historialMemoria = useHistorialStore.getState().historial;
+      const guardadoEnMemoria = historialMemoria.find(h => h.fecha === f);
 
-      if (guardado) {
-        get()._aplicarDatos(JSON.parse(guardado.datos_json));
+      if (guardadoEnMemoria) {
+        get()._aplicarDatos(guardadoEnMemoria);
         set({ cargando: false });
         return;
       }
