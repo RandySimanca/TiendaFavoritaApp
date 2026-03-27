@@ -62,16 +62,16 @@ export default function RetirosScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.white }} edges={['top']}>
-      <ScrollView style={estilos.scroll} contentContainerStyle={estilos.contenido}>
-
-      {/* Encabezado */}
-      <View style={estilos.encHead}>
+      {/* Encabezado Fijo */}
+      <View style={[estilos.encHead, { paddingHorizontal: 16, marginTop: 16, marginBottom: 8 }]}>
         <TouchableOpacity style={estilos.btnMenu} onPress={() => navigation.openDrawer()}>
           <MaterialCommunityIcons name="menu" size={24} color={Colors.dark} />
         </TouchableOpacity>
         <Text style={estilos.encTitulo}>💼 Caja: Retiros e Ingresos</Text>
         <View style={{ width: 40 }} />
       </View>
+
+      <ScrollView style={estilos.scroll} contentContainerStyle={estilos.contenido}>
 
       {/* Resumen Totales */}
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>

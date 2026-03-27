@@ -101,21 +101,21 @@ export default function PreciosScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.white }} edges={['top']}>
     <View style={{ flex: 1, backgroundColor: Colors.bg }}>
-      <ScrollView contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
+      {/* Encabezado Fijo */}
+      <View style={[estilos.encHead, { paddingHorizontal: 16, marginTop: 16, marginBottom: 8 }]}>
+        <TouchableOpacity style={estilos.btnMenu} onPress={() => navigation.openDrawer()}>
+          <MaterialCommunityIcons name="menu" size={24} color={Colors.dark} />
+        </TouchableOpacity>
+        <Text style={estilos.encTitulo}>💲 Lista de Precios</Text>
+        <TouchableOpacity 
+          style={estilos.btnExportar} 
+          onPress={() => PDFService.reporteInventario(precios)}
+        >
+          <Text style={{ fontSize: 18 }}>📄</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Encabezado */}
-        <View style={estilos.encHead}>
-          <TouchableOpacity style={estilos.btnMenu} onPress={() => navigation.openDrawer()}>
-            <MaterialCommunityIcons name="menu" size={24} color={Colors.dark} />
-          </TouchableOpacity>
-          <Text style={estilos.encTitulo}>💲 Lista de Precios</Text>
-          <TouchableOpacity 
-            style={estilos.btnExportar} 
-            onPress={() => PDFService.reporteInventario(precios)}
-          >
-            <Text style={{ fontSize: 18 }}>📄</Text>
-          </TouchableOpacity>
-        </View>
+      <ScrollView contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
 
         {/* Buscador */}
         <TextInput

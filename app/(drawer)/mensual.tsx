@@ -99,8 +99,8 @@ export default function MensualScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      {/* Header con Gradiente Premium */}
+    <View style={styles.container}>
+      {/* Header con Gradiente Premium Fijo */}
       <LinearGradient colors={['#14532d', '#16a34a']} style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 10 }}>
           <TouchableOpacity onPress={() => navigation.openDrawer()}>
@@ -113,7 +113,8 @@ export default function MensualScreen() {
         </View>
       </LinearGradient>
 
-      {/* Tarjeta Principal de Mes Actual */}
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        {/* Tarjeta Principal de Mes Actual */}
       <View style={styles.card}>
         {!yaCerrado && (
           <View style={[styles.pill, { alignSelf: 'flex-start', marginBottom: 10, backgroundColor: '#fef3c7' }]}>
@@ -244,7 +245,8 @@ export default function MensualScreen() {
           </View>
         ))
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

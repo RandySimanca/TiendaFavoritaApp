@@ -168,16 +168,16 @@ export default function HistorialScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.white }} edges={['top']}>
-      <ScrollView style={estilos.scroll} contentContainerStyle={estilos.contenido}>
-
-      {/* Encabezado */}
-      <View style={estilos.encHead}>
+      {/* Encabezado Fijo */}
+      <View style={[estilos.encHead, { paddingHorizontal: 16, marginTop: 16, marginBottom: 8 }]}>
         <TouchableOpacity style={estilos.btnMenu} onPress={() => navigation.openDrawer()}>
           <MaterialCommunityIcons name="menu" size={24} color={Colors.dark} />
         </TouchableOpacity>
         <Text style={estilos.encTitulo}>📅 Historial</Text>
         <View style={{ width: 40 }} /> 
       </View>
+
+      <ScrollView style={estilos.scroll} contentContainerStyle={estilos.contenido}>
 
       {/* Resumen mensual (solo admin) */}
       {esAdmin && clavesMeses.map(clave => {
