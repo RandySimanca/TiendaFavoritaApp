@@ -7,20 +7,27 @@ import { Colors } from '../../constants/Colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatCurrency } from '../../utils/format';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { calcularDia } from '../../utils/calcular';
 
 export default function PromedioScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
   const historial = useHistorialStore(s => s.historial);
-  
+
+  // Extraemos los totales recalculados de cada día usando la última fórmula
+  const historialConTotalRecalculado = historial.map(dia => ({
+    ...dia,
+    totalActualizado: calcularDia(dia as any).total
+  }));
+
   // Calcular promedios
-  const totalVentas = historial.reduce((acc, dia) => acc + (dia.total || 0), 0);
-  const diasConVentas = historial.filter(dia => (dia.total || 0) > 0).length;
+  const totalVentas = historialConTotalRecalculado.reduce((acc, dia) => acc + dia.totalActualizado, 0);
+  const diasConVentas = historialConTotalRecalculado.filter(dia => dia.totalActualizado > 0).length;
   const promedioDiario = diasConVentas > 0 ? totalVentas / diasConVentas : 0;
 
   // Día de mayor y menor venta
-  const diasValidos = historial.filter(dia => (dia.total || 0) > 0);
-  const diaMax = diasValidos.length > 0 ? diasValidos.reduce((max, d) => (d.total || 0) > (max.total || 0) ? d : max, diasValidos[0]) : null;
-  const diaMin = diasValidos.length > 0 ? diasValidos.reduce((min, d) => (d.total || 0) < (min.total || 0) ? d : min, diasValidos[0]) : null;
+  const diasValidos = historialConTotalRecalculado.filter(dia => dia.totalActualizado > 0);
+  const diaMax = diasValidos.length > 0 ? diasValidos.reduce((max, d) => d.totalActualizado > max.totalActualizado ? d : max, diasValidos[0]) : null;
+  const diaMin = diasValidos.length > 0 ? diasValidos.reduce((min, d) => d.totalActualizado < min.totalActualizado ? d : min, diasValidos[0]) : null;
 
   function formatFechaCorta(fecha: string) {
     if (!fecha) return '—';

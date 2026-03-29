@@ -177,43 +177,58 @@ export default function HistorialScreen() {
         <View style={{ width: 40 }} /> 
       </View>
 
+      {/* Resumen mensual fijo (solo admin) */}
+      {esAdmin && clavesMeses.length > 0 && (
+        <View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16 }}>
+            {clavesMeses.map(clave => {
+              const [anio, mes] = clave.split('-');
+              const nomMes = new Date(+anio, +mes - 1, 1).toLocaleDateString('es-CO', {
+                month: 'long', year: 'numeric',
+              });
+              const datos = meses[clave];
+              return (
+                <LinearGradient key={clave} colors={['#1a5e2a', '#2d8a3e']} style={[estilos.mesBloq, { width: 320, marginRight: 16 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                  <Text style={estilos.mesNombre}>📆 {nomMes.toUpperCase()} — {datos.dias} día{datos.dias !== 1 ? 's' : ''}</Text>
+                  
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <View>
+                      <Text style={estilos.mesEtiq}>💰 Total vendido</Text>
+                      <Text style={estilos.mesValor}>{fmt(datos.ventas)}</Text>
+                    </View>
+                     <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={estilos.mesEtiq}>🛒 Total compras</Text>
+                      <Text style={estilos.mesValor}>{fmt(datos.compras)}</Text>
+                    </View>
+                    {/*<View style={{ alignItems: 'flex-end' }}>
+                      <Text style={estilos.mesEtiq}>📈 Utilidades 15%</Text>
+                      <Text style={[estilos.mesValor, { color: '#ffe066' }]}>{fmt(datos.ventas * 0.15)}</Text>
+                    </View>*/}
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', paddingTop: 10 }}>
+                    <View>
+                      <Text style={estilos.mesEtiq}>📊 Promedio de venta</Text>
+                      <Text style={[estilos.mesValor, { fontSize: 17 }]}>{fmt(datos.ventas / (datos.dias || 1))}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={estilos.mesEtiq}>📈 Utilidades 15%</Text>
+                      <Text style={[estilos.mesValor, { color: '#ffe066' }]}>{fmt(datos.ventas * 0.15)}</Text>
+                    </View>
+
+                    {/*<View style={{ alignItems: 'flex-end' }}>
+                      <Text style={estilos.mesEtiq}>🛒 Total compras</Text>
+                      <Text style={[estilos.mesValor, { fontSize: 17, color: '#bbf7d0' }]}>{fmt(datos.compras)}</Text>
+                    </View>*/}
+                  </View>
+                </LinearGradient>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       <ScrollView style={estilos.scroll} contentContainerStyle={estilos.contenido}>
-
-      {/* Resumen mensual (solo admin) */}
-      {esAdmin && clavesMeses.map(clave => {
-        const [anio, mes] = clave.split('-');
-        const nomMes = new Date(+anio, +mes - 1, 1).toLocaleDateString('es-CO', {
-          month: 'long', year: 'numeric',
-        });
-        const datos = meses[clave];
-        return (
-          <LinearGradient key={clave} colors={['#1a5e2a', '#2d8a3e']} style={estilos.mesBloq} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-            <Text style={estilos.mesNombre}>📆 {nomMes.toUpperCase()} — {datos.dias} día{datos.dias !== 1 ? 's' : ''}</Text>
-            
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
-              <View>
-                <Text style={estilos.mesEtiq}>💰 Total vendido</Text>
-                <Text style={estilos.mesValor}>{fmt(datos.ventas)}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={estilos.mesEtiq}>📈 Utilidades 15%</Text>
-                <Text style={[estilos.mesValor, { color: '#ffe066' }]}>{fmt(datos.ventas * 0.15)}</Text>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', paddingTop: 10 }}>
-              <View>
-                <Text style={estilos.mesEtiq}>📊 Promedio de venta</Text>
-                <Text style={[estilos.mesValor, { fontSize: 17 }]}>{fmt(datos.ventas / datos.dias)}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={estilos.mesEtiq}>🛒 Total compras</Text>
-                <Text style={[estilos.mesValor, { fontSize: 17, color: '#bbf7d0' }]}>{fmt(datos.compras)}</Text>
-              </View>
-            </View>
-          </LinearGradient>
-        );
-      })}
 
       {/* Lista de días individuales */}
       {[...historial].sort((a,b) => b.fecha.localeCompare(a.fecha)).map((d, i) => {

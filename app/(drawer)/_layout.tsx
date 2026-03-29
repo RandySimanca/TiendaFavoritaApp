@@ -106,6 +106,17 @@ export default function DrawerLayout() {
         }}
       />
       <Drawer.Screen
+        name="reporte"
+        options={{
+          drawerLabel: 'Reporte por Fechas',
+          title: '📊 Reporte Personalizado',
+          drawerIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="calendar-search" size={size} color={color} />
+          ),
+          drawerItemStyle: esAdmin ? undefined : { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
         name="gastos"
         options={{
           drawerLabel: 'Gastos Operacionales',
