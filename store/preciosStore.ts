@@ -50,9 +50,18 @@ export const usePreciosStore = create<PreciosStore>((set, get) => ({
       let data = await dbGetPrecios();
       
       if (data.length === 0) {
-        // Primera vez: cargar iniciales
+        // Primera vez: cargar todos los iniciales
         await dbInsertPreciosBulk(PRECIOS_INICIALES);
         data = await dbGetPrecios();
+      } else {
+        // Detectar productos nuevos en PRECIOS_INICIALES que no están en la BD
+        const nombresExistentes = new Set(data.map(p => p.nombre.toLowerCase()));
+        const nuevos = PRECIOS_INICIALES.filter(p => !nombresExistentes.has(p.nombre.toLowerCase()));
+        if (nuevos.length > 0) {
+          console.log(`Insertando ${nuevos.length} productos nuevos del catálogo...`);
+          await dbInsertPreciosBulk(nuevos);
+          data = await dbGetPrecios();
+        }
       }
       set({ precios: data, cargando: false });
 
@@ -61,10 +70,23 @@ export const usePreciosStore = create<PreciosStore>((set, get) => ({
         try {
           const { data: cloudData, error } = await supabase.from('precios').select('*');
           if (!error && cloudData && cloudData.length > 0) {
-            // Si el cloud tiene datos, los mostramos. 
-            // Filtrar posibles nulos o malformados
-            const limpios = cloudData.filter(p => p && p.nombre);
-            set({ precios: limpios });
+            // Verificar si hay productos nuevos que no están en cloud
+            const nombresCloud = new Set(cloudData.map((p: any) => p.nombre?.toLowerCase()));
+            const faltanEnCloud = data.filter(p => !nombresCloud.has(p.nombre.toLowerCase()));
+            if (faltanEnCloud.length > 0) {
+              await supabase.from('precios').insert(faltanEnCloud.map(p => ({
+                nombre: p.nombre, proveedor: p.proveedor, compra: p.compra, venta: p.venta, unidad: p.unidad
+              })));
+              // Recargar cloud completo después de insertar
+              const { data: cloudActualizado } = await supabase.from('precios').select('*');
+              if (cloudActualizado) {
+                const limpios = cloudActualizado.filter((p: any) => p && p.nombre);
+                set({ precios: limpios });
+              }
+            } else {
+              const limpios = cloudData.filter((p: any) => p && p.nombre);
+              set({ precios: limpios });
+            }
           } else if (!error && cloudData && cloudData.length === 0 && data.length > 0) {
             // Seed inicial al cloud si está vacío
             await supabase.from('precios').insert(data.map(p => ({

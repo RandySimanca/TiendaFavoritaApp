@@ -4,7 +4,7 @@ import { supabase } from '../utils/supabase';
 import { generarCierreMensual } from '../utils/calcular';
 import { useGastosStore } from './gastosStore';
 
-interface CierreMensual {
+export interface CierreMensual {
   mes: string;
   venta_total: number;
   compras_total: number;

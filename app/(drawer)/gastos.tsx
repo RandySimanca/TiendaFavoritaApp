@@ -21,22 +21,52 @@ const CATEGORIAS = [
   { id: 'otros', nombre: 'Otros Gastos', icon: 'dots-horizontal' },
 ];
 
+const GASTOS_COMUNES = [
+  { id: 'arr', nombre: 'Arriendo', cat: 'arriendo', icon: 'home-city', defaultMonto: '1000000' },
+  { id: 'ene', nombre: 'Servicio de Energía', cat: 'luz', icon: 'lightning-bolt' },
+  { id: 'agu', nombre: 'Servicio de Agua', cat: 'agua', icon: 'water' },
+  { id: 'int', nombre: 'Servicio de Internet', cat: 'otros', icon: 'wifi' },
+];
+
 export default function GastosScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
-  const { gastos, cargando, cargar, agregarGasto, eliminarGasto } = useGastosStore();
+  const { gastos, gastosRecurrentes, cargando, cargar, cargarRecurrentes, guardarRecurrentes, agregarGasto, eliminarGasto } = useGastosStore();
   
   const [mesFiltro, setMesFiltro] = useState(new Date().toISOString().slice(0, 7));
   const [modalVisible, setModalVisible] = useState(false);
+  const [configModalVisible, setConfigModalVisible] = useState(false);
+  const [pendientesVisible, setPendientesVisible] = useState(false);
 
-  // Formulario
+  // Formulario Normal
   const [concepto, setConcepto] = useState('');
   const [monto, setMonto] = useState('0');
   const [catSel, setCatSel] = useState(CATEGORIAS[0]);
   const [fuente, setFuente] = useState<'Caja' | 'Banco'>('Caja');
 
+  // Formulario Recurrente 
+  const [recConcepto, setRecConcepto] = useState('');
+  const [recMonto, setRecMonto] = useState('0');
+  const [recDia, setRecDia] = useState('1');
+
+  // Evalua los gastos pendientes
+  const gastosPendientes = gastosRecurrentes.filter(r => 
+    r.activo && !gastos.some(g => g.concepto === r.concepto && g.mes === mesFiltro)
+  );
+
   useEffect(() => {
-    cargar(mesFiltro);
+    const init = async () => {
+      await cargar(mesFiltro);
+      await cargarRecurrentes();
+    };
+    init();
   }, [mesFiltro]);
+
+  const cambiarMes = (k: number) => {
+    // Usamos el día 15 para estar seguros y evitar problemas de huso horario al sumar/restar meses
+    const d = new Date(`${mesFiltro}-15T12:00:00`);
+    d.setMonth(d.getMonth() + k);
+    setMesFiltro(d.toISOString().slice(0, 7));
+  };
 
   const handleGuardar = async () => {
     const valor = parseInput(monto);
@@ -54,6 +84,23 @@ export default function GastosScreen() {
       fuente: fuente
     });
 
+    if (fuente === 'Caja') {
+      const hoyStr = new Date().toISOString().slice(0, 10);
+      const { useHistorialStore } = require('../../store/historialStore');
+      const { useDiaStore } = require('../../store/diaStore');
+      
+      await useHistorialStore.getState().inyectarGastoOperacional({ 
+        nombre: `[Admin] ${concepto}`, 
+        valor: valor, 
+        fechaStr: hoyStr 
+      });
+      
+      // Si el usuario tiene el día de hoy abierto en la Store, lo recargamos para que se refleje de inmediato
+      if (useDiaStore.getState().fecha === hoyStr) {
+         useDiaStore.getState().cargarDiaActual(hoyStr);
+      }
+    }
+
     setConcepto('');
     setMonto('0');
     setModalVisible(false);
@@ -70,6 +117,62 @@ export default function GastosScreen() {
 
   const totalMes = gastos.reduce((acc, g) => acc + g.monto, 0);
 
+  // ── Lógica de Gastos Fijos (Recurrentes) ──
+  const handleGuardarRecurrente = async () => {
+    const valor = parseInput(recMonto);
+    if (!recConcepto || valor <= 0) return Alert.alert("Error", "Concepto y monto obligatorios.");
+    const diaNum = parseInt(recDia) || 1;
+    if (diaNum < 1 || diaNum > 31) return Alert.alert("Error", "Día inválido");
+
+    const nr: import('../../store/gastosStore').GastoRecurrente = {
+      id: Math.random().toString(36).substring(7),
+      concepto: recConcepto,
+      monto: valor,
+      categoria: 'arriendo', // Default por simplicidad
+      fuente: fuente,
+      dia: diaNum,
+      activo: true
+    };
+    await guardarRecurrentes([...gastosRecurrentes, nr]);
+    setRecConcepto('');
+    setRecMonto('0');
+  };
+
+  const handleEliminarRecurrente = async (id: string) => {
+    await guardarRecurrentes(gastosRecurrentes.filter(r => r.id !== id));
+  };
+
+  const handleAprobarPendiente = async (r: import('../../store/gastosStore').GastoRecurrente) => {
+    const year = parseInt(mesFiltro.split('-')[0]);
+    const month = parseInt(mesFiltro.split('-')[1]) - 1;
+    const paymentDate = new Date(year, month, r.dia, 12, 0, 0);
+    
+    await agregarGasto({
+      id: Math.random().toString(36).substring(7),
+      mes: mesFiltro,
+      concepto: r.concepto,
+      monto: r.monto,
+      categoria: r.categoria,
+      fuente: r.fuente,
+      timestamp: paymentDate.getTime()
+    });
+
+    if (r.fuente === 'Caja') {
+      const { useHistorialStore } = require('../../store/historialStore');
+      const { useDiaStore } = require('../../store/diaStore');
+      const targetDateStr = paymentDate.toISOString().slice(0, 10);
+      
+      await useHistorialStore.getState().inyectarGastoOperacional({ 
+        nombre: `[Admin] ${r.concepto}`, 
+        valor: r.monto, 
+        fechaStr: targetDateStr 
+      });
+      if (useDiaStore.getState().fecha === targetDateStr) {
+         useDiaStore.getState().cargarDiaActual(targetDateStr);
+      }
+    }
+  };
+
   return (
     <KeyboardAvoidingView 
       style={{ flex: 1 }} 
@@ -83,10 +186,13 @@ export default function GastosScreen() {
             <TouchableOpacity onPress={() => navigation.openDrawer()}>
               <MaterialCommunityIcons name="menu" size={28} color={Colors.white} />
             </TouchableOpacity>
-            <View>
-              <Text style={styles.headerTitle}>Gastos Administrativos</Text>
-              <Text style={styles.headerSubtitle}>Control de Gastos Operacionales</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle}>Gastos Admon</Text>
+              <Text style={styles.headerSubtitle}>Control Operacional</Text>
             </View>
+            <TouchableOpacity onPress={() => setConfigModalVisible(true)} style={{ backgroundColor: 'rgba(255,255,255,0.15)', padding: 8, borderRadius: 10 }}>
+              <MaterialCommunityIcons name="cog" size={24} color={Colors.white} />
+            </TouchableOpacity>
           </View>
           
           <View style={styles.summaryCard}>
@@ -95,11 +201,35 @@ export default function GastosScreen() {
           </View>
         </LinearGradient>
 
+        {gastosPendientes.length > 0 && !modalVisible && !configModalVisible && (
+          <TouchableOpacity 
+             style={{ margin: 16, marginBottom: 0, backgroundColor: '#fef3c7', padding: 15, borderRadius: 15, flexDirection: 'row', alignItems: 'center', elevation: 2 }}
+             onPress={() => setPendientesVisible(true)}
+          >
+            <MaterialCommunityIcons name="alert-circle-outline" size={24} color="#d97706" />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={{ fontWeight: '800', color: '#92400e', fontSize: 13 }}>Tienes {gastosPendientes.length} Gasto{gastosPendientes.length > 1 ? 's' : ''} Fijo{gastosPendientes.length > 1 ? 's' : ''} Pendiente{gastosPendientes.length > 1 ? 's' : ''}</Text>
+              <Text style={{ color: '#b45309', fontSize: 12 }}>Toca aquí para revisar y aprobar.</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color="#d97706" />
+          </TouchableOpacity>
+        )}
+
         {/* Selector de Mes y Botón Agregar */}
         <View style={styles.actionRow}>
           <View style={styles.mesPicker}>
-            <MaterialCommunityIcons name="calendar-month" size={20} color={Colors.gray} />
-            <Text style={styles.mesText}>{mesFiltro}</Text>
+            <TouchableOpacity onPress={() => cambiarMes(-1)} style={{ padding: 5 }}>
+              <MaterialCommunityIcons name="chevron-left" size={24} color={Colors.gray} />
+            </TouchableOpacity>
+            
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 5 }}>
+              <MaterialCommunityIcons name="calendar-month" size={18} color={Colors.gray} />
+              <Text style={styles.mesText}>{mesFiltro}</Text>
+            </View>
+
+            <TouchableOpacity onPress={() => cambiarMes(1)} style={{ padding: 5 }}>
+              <MaterialCommunityIcons name="chevron-right" size={24} color={Colors.gray} />
+            </TouchableOpacity>
           </View>
           <TouchableOpacity style={styles.btnAdd} onPress={() => setModalVisible(!modalVisible)}>
             <MaterialCommunityIcons name={modalVisible ? "close" : "plus"} size={22} color={Colors.white} />
@@ -115,6 +245,30 @@ export default function GastosScreen() {
           >
             <Text style={styles.formTitle}>Registrar Nuevo Pago</Text>
             
+            <Text style={styles.inputLabel}>Gastos Frecuentes</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 5, marginBottom: 15 }}>
+              {GASTOS_COMUNES.map(g => (
+                <TouchableOpacity 
+                  key={g.id} 
+                  style={[styles.pillGasto, concepto === g.nombre && styles.pillGastoActivo]}
+                  onPress={() => {
+                    setConcepto(g.nombre);
+                    setCatSel(CATEGORIAS.find(c => c.id === g.cat) || CATEGORIAS[0]);
+                    if (g.defaultMonto) setMonto(formatInput(g.defaultMonto));
+                  }}
+                >
+                  <MaterialCommunityIcons 
+                    name={g.icon as any} 
+                    size={16} 
+                    color={concepto === g.nombre ? Colors.white : Colors.dark} 
+                  />
+                  <Text style={[styles.pillGastoTxt, concepto === g.nombre && { color: Colors.white }]}>
+                    {g.nombre}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             <Text style={styles.inputLabel}>Concepto (ej: Pago de Energía)</Text>
             <TextInput 
               style={styles.input} 
@@ -165,7 +319,7 @@ export default function GastosScreen() {
                 onPress={() => setFuente('Banco')}
               >
                 <MaterialCommunityIcons name="bank-outline" size={20} color={fuente === 'Banco' ? Colors.white : Colors.dark} />
-                <Text style={[styles.sourceBtnText, fuente === 'Banco' && styles.sourceBtnTextActive]}>Banco/Otros</Text>
+                <Text style={[styles.sourceBtnText, fuente === 'Banco' && styles.sourceBtnTextActive]}>Fondo guardado / Banco</Text>
               </TouchableOpacity>
             </View>
 
@@ -197,6 +351,16 @@ export default function GastosScreen() {
                   <Text style={styles.gastoCat}>
                     {CATEGORIAS.find(c => c.id === item.categoria)?.nombre} • {item.fuente}
                   </Text>
+                  <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 4 }}>
+                    <Text style={{ fontSize: 11, color: '#64748b' }}>
+                      📅 {new Date(item.timestamp).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                    {gastosRecurrentes.some(r => r.concepto === item.concepto) && (
+                      <Text style={{ fontSize: 10, color: 'green', fontWeight: '800' }}>
+                        • 🔄 Fijo
+                      </Text>
+                    )}
+                  </View>
                 </View>
                 <View style={styles.gastoRight}>
                   <Text style={styles.gastoMonto}>{fmt(item.monto)}</Text>
@@ -208,6 +372,77 @@ export default function GastosScreen() {
             )}
           />
         )}
+        
+        {pendientesVisible && (
+          <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+            <View style={{ backgroundColor: Colors.white, padding: 20, borderRadius: 20, maxHeight: '80%' }}>
+              <Text style={{ fontSize: 18, fontWeight: '900', color: Colors.dark, marginBottom: 15 }}>Aprobar Gastos Fijos</Text>
+              <ScrollView>
+                {gastosPendientes.map(r => (
+                  <View key={r.id} style={{ backgroundColor: '#f8fafc', padding: 15, borderRadius: 15, marginBottom: 10, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                    <Text style={{ fontSize: 16, fontWeight: '800' }}>{r.concepto}</Text>
+                    <Text style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>📍 Se pagará el: Día {r.dia} del {mesFiltro}</Text>
+                    <Text style={{ fontSize: 13, color: '#64748b' }}>🏦 Fuente: {r.fuente}</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                      <Text style={{ fontSize: 16, fontWeight: '900', color: '#ef4444' }}>{fmt(r.monto)}</Text>
+                      <TouchableOpacity onPress={() => handleAprobarPendiente(r)} style={{ backgroundColor: Colors.green, paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10 }}>
+                        <Text style={{ color: Colors.white, fontWeight: '800' }}>Aprobar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+              <TouchableOpacity onPress={() => setPendientesVisible(false)} style={{ backgroundColor: Colors.gray, padding: 15, borderRadius: 12, marginTop: 10, alignItems: 'center' }}>
+                <Text style={{ color: Colors.white, fontWeight: '900' }}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {configModalVisible && (
+          <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+            <View style={{ backgroundColor: Colors.white, padding: 20, borderRadius: 20, maxHeight: '90%' }}>
+              <Text style={{ fontSize: 18, fontWeight: '900', color: Colors.dark, marginBottom: 15 }}>Configurar Gastos Fijos</Text>
+              <ScrollView>
+                <Text style={styles.inputLabel}>Lista de Gastos Fijos Activos</Text>
+                {gastosRecurrentes.map(r => (
+                  <View key={r.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderColor: '#e2e8f0' }}>
+                    <View>
+                      <Text style={{ fontWeight: '800' }}>{r.concepto}</Text>
+                      <Text style={{ fontSize: 11, color: '#64748b' }}>Día {r.dia} • {r.fuente} • {fmt(r.monto)}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => handleEliminarRecurrente(r.id)} style={{ alignSelf: 'center' }}>
+                      <MaterialCommunityIcons name="trash-can-outline" size={20} color="#ef4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                <Text style={[styles.formTitle, { marginTop: 25, fontSize: 15 }]}>+ Agregar Gasto Fijo</Text>
+                <TextInput style={styles.input} placeholder="Concepto (ej: Arriendo)" value={recConcepto} onChangeText={setRecConcepto} />
+                <TextInput style={[styles.input, {marginTop: 10}]} placeholder="Monto" value={recMonto} onChangeText={t => setRecMonto(formatInput(t))} keyboardType="numeric" />
+                <TextInput style={[styles.input, {marginTop: 10}]} placeholder="Día del mes (1 al 31)" value={recDia} onChangeText={setRecDia} keyboardType="numeric" />
+                
+                <Text style={styles.inputLabel}>¿De dónde sale este pago fijo?</Text>
+                <View style={styles.sourceRow}>
+                  <TouchableOpacity style={[styles.sourceBtn, fuente === 'Caja' && styles.sourceBtnActive]} onPress={() => setFuente('Caja')}>
+                    <Text style={[styles.sourceBtnText, fuente === 'Caja' && styles.sourceBtnTextActive]}>Caja Diaria</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.sourceBtn, fuente === 'Banco' && styles.sourceBtnActive]} onPress={() => setFuente('Banco')}>
+                    <Text style={[styles.sourceBtnText, fuente === 'Banco' && styles.sourceBtnTextActive]}>Fondo/Banco</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity style={[styles.btnSave, {marginTop:15}]} onPress={handleGuardarRecurrente}>
+                  <Text style={styles.btnSaveText}>Añadir Gasto Fijo</Text>
+                </TouchableOpacity>
+              </ScrollView>
+              <TouchableOpacity onPress={() => setConfigModalVisible(false)} style={{ backgroundColor: Colors.gray, padding: 15, borderRadius: 12, marginTop: 15, alignItems: 'center' }}>
+                <Text style={{ color: Colors.white, fontWeight: '900' }}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
       </View>
     </KeyboardAvoidingView>
   );
@@ -251,6 +486,9 @@ const styles = StyleSheet.create({
   gastoRight: { alignItems: 'flex-end', gap: 5 },
   gastoMonto: { fontSize: 16, fontWeight: '900', color: '#ef4444' },
   empty: { alignItems: 'center', marginTop: 100 },
-  emptyText: { color: Colors.gray, marginTop: 10, fontWeight: '600' }
+  emptyText: { color: Colors.gray, marginTop: 10, fontWeight: '600' },
+  pillGasto: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#e2e8f0', gap: 6 },
+  pillGastoActivo: { backgroundColor: Colors.green, borderColor: Colors.green },
+  pillGastoTxt: { fontSize: 13, fontWeight: '700', color: Colors.gray },
 });
 

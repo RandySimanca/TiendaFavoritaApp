@@ -12,18 +12,33 @@ export interface GastoAdmon {
   timestamp: number;
 }
 
+export type GastoRecurrente = {
+  id: string;
+  concepto: string;
+  monto: number;
+  categoria: string;
+  fuente: 'Caja' | 'Banco';
+  dia: number;
+  activo: boolean;
+};
+
 interface GastosStore {
   gastos: GastoAdmon[];
+  gastosRecurrentes: GastoRecurrente[];
   cargando: boolean;
 
   cargar: (mes?: string) => Promise<void>;
-  agregarGasto: (g: Omit<GastoAdmon, 'timestamp'>) => Promise<void>;
+  agregarGasto: (g: Omit<GastoAdmon, 'timestamp'> & { timestamp?: number }) => Promise<void>;
   eliminarGasto: (id: string) => Promise<void>;
   suscribirCambios: () => void;
+  
+  cargarRecurrentes: () => Promise<void>;
+  guardarRecurrentes: (recurrentes: GastoRecurrente[]) => Promise<void>;
 }
 
 export const useGastosStore = create<GastosStore>((set, get) => ({
   gastos: [],
+  gastosRecurrentes: [],
   cargando: true,
 
   cargar: async (mes) => {
@@ -49,7 +64,7 @@ export const useGastosStore = create<GastosStore>((set, get) => ({
 
   agregarGasto: async (g) => {
     try {
-      const nuevo = { ...g, timestamp: Date.now() };
+      const nuevo = { timestamp: Date.now(), ...g } as GastoAdmon;
       await dbInsertGastoAdmon(nuevo);
       await get().cargar(g.mes);
 
@@ -77,5 +92,21 @@ export const useGastosStore = create<GastosStore>((set, get) => ({
         get().cargar();
       })
       .subscribe();
+  },
+
+  cargarRecurrentes: async () => {
+    try {
+      const { dbGetBorrador } = require('../utils/database');
+      const data = await dbGetBorrador('config_recurrentes');
+      if (data) set({ gastosRecurrentes: data });
+    } catch(e) {
+      console.log('No recurrences stored yet');
+    }
+  },
+
+  guardarRecurrentes: async (recurrentes) => {
+    const { dbSetBorrador } = require('../utils/database');
+    await dbSetBorrador('config_recurrentes', recurrentes);
+    set({ gastosRecurrentes: recurrentes });
   }
 }));

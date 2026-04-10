@@ -119,17 +119,18 @@ export function calcularDia(estado: EstadoDia): ResultadoCuadre {
 
 // Agrupa un historial por mes y devuelve resumen
 export function resumenPorMes(historial: any[]) {
-  const meses: Record<string, { ventas: number; compras: number; dias: number }> = {};
+  const meses: Record<string, { ventas: number; compras: number; gastos: number; dias: number }> = {};
   historial.forEach(d => {
     if (!d.fecha) return;
     const clave = d.fecha.substring(0, 7); // YYYY-MM
-    if (!meses[clave]) meses[clave] = { ventas: 0, compras: 0, dias: 0 };
+    if (!meses[clave]) meses[clave] = { ventas: 0, compras: 0, gastos: 0, dias: 0 };
     // Siempre recalculamos el día para aplicar la fórmula actualizada a días guardados
     const res = calcularDia(d);
     let total = res.total;
     let compras = res.compras;
     meses[clave].ventas += Math.max(0, total);
     meses[clave].compras += compras;
+    meses[clave].gastos += res.totalGastos;
     meses[clave].dias++;
   });
   return meses;

@@ -1,17 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  Alert, ActivityIndicator 
+  Alert, ActivityIndicator, Modal
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
-import { useMensualStore } from '../../store/mensualStore';
+import { useMensualStore, CierreMensual } from '../../store/mensualStore';
 import { useHistorialStore } from '../../store/historialStore';
 import { useGastosStore } from '../../store/gastosStore';
 import { fmt } from '../../utils/calcular';
 import { Colors } from '../../constants/Colors';
+
+const getDetallesSeguro = (jsonDetalle: any) => {
+  if (!jsonDetalle) return null;
+  if (typeof jsonDetalle === 'object') return jsonDetalle;
+  try {
+    return JSON.parse(jsonDetalle);
+  } catch (e) {
+    return null;
+  }
+};
 
 export default function MensualScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
@@ -19,6 +29,7 @@ export default function MensualScreen() {
   const { historial } = useHistorialStore();
   const { gastos: gastosAdmon, cargar: cargarGastos } = useGastosStore();
   const [procesando, setProcesando] = useState(false);
+  const [selectedCierre, setSelectedCierre] = useState<CierreMensual | null>(null);
 
   // Fecha actual para el botón de cierre
   const mesActual = new Date().toISOString().slice(0, 7); // YYYY-MM
@@ -72,6 +83,16 @@ export default function MensualScreen() {
   };
   const anterior = cierres.find(c => c.mes === anteriorClave());
 
+  // Generar lista combinada de meses (historial en vivo + cierres)
+  const mesesHistoricos = Array.from(new Set(historial.map((d: any) => d.fecha?.substring(0, 7)).filter(Boolean))).sort().reverse();
+  const { generarCierreMensual } = require('../../utils/calcular');
+  
+  const listaMostrada = mesesHistoricos.map(mes => {
+    const cerrado = cierres.find(c => c.mes === mes);
+    if (cerrado) return { ...cerrado, isCerrado: true };
+    return { ...generarCierreMensual(mes, historial, gastosAdmon), isCerrado: false };
+  });
+
   const Variacion = ({ actual, anterior }: { actual: number, anterior: number }) => {
     if (!anterior || anterior === 0) return null;
     const diff = ((actual - anterior) / anterior) * 100;
@@ -115,7 +136,11 @@ export default function MensualScreen() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Tarjeta Principal de Mes Actual */}
-      <View style={styles.card}>
+      <TouchableOpacity 
+        style={styles.card}
+        activeOpacity={yaCerrado ? 0.8 : 1}
+        onPress={() => { if (yaCerrado && actual) setSelectedCierre(actual as CierreMensual) }}
+      >
         {!yaCerrado && (
           <View style={[styles.pill, { alignSelf: 'flex-start', marginBottom: 10, backgroundColor: '#fef3c7' }]}>
             <MaterialCommunityIcons name="eye-outline" size={14} color="#92400e" />
@@ -217,23 +242,27 @@ export default function MensualScreen() {
             </>
           )}
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
 
       {/* Histórico */}
       <Text style={styles.sectionTitle}>Historial de Meses</Text>
-      {cierres.length === 0 ? (
+      {listaMostrada.length === 0 ? (
         <View style={styles.empty}>
           <MaterialCommunityIcons name="database-off" size={40} color={Colors.gray} />
-          <Text style={styles.emptyText}>No hay cierres registrados aún</Text>
+          <Text style={styles.emptyText}>No hay datos registrados aún</Text>
         </View>
       ) : (
-        cierres.map((c, i) => (
-          <View key={c.mes} style={styles.histItem}>
-            <View style={styles.histDot} />
+        listaMostrada.map((c: any) => (
+          <TouchableOpacity key={c.mes} style={styles.histItem} onPress={() => setSelectedCierre(c as CierreMensual)}>
+            <View style={[styles.histDot, !c.isCerrado && { backgroundColor: Colors.orange }]} />
             <View style={styles.histContent}>
               <View style={styles.histHeader}>
-                <Text style={styles.histMes}>{c.mes}</Text>
-                <Text style={styles.histUtilidad}>{fmt(c.utilidad)}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Text style={styles.histMes}>{c.mes}</Text>
+                  {!c.isCerrado && <MaterialCommunityIcons name="clock-outline" size={14} color={Colors.orange} />}
+                  {c.isCerrado && <MaterialCommunityIcons name="lock-check" size={14} color={Colors.green} />}
+                </View>
+                <Text style={[styles.histUtilidad, !c.isCerrado && { color: Colors.orange }]}>{fmt(c.utilidad)}</Text>
               </View>
               <Text style={styles.histSub}>
                 V: {fmt(c.venta_total)} • C: {fmt(c.compras_total)} • G: {fmt(c.gasto_total)}
@@ -242,10 +271,120 @@ export default function MensualScreen() {
                 💼 Ret: {fmt(c.retiros_total)} • 👤 Prést: {fmt(c.prestamos_total)} • 💰 Ing: {fmt(c.ingresos_total)}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         ))
       )}
       </ScrollView>
+
+      {/* Modal Detalles del Mes Histórico */}
+      <Modal
+        visible={!!selectedCierre}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setSelectedCierre(null)}
+      >
+        <View style={styles.modalOverlay}>
+          {selectedCierre && (
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Detalles de {selectedCierre.mes}</Text>
+                <TouchableOpacity onPress={() => setSelectedCierre(null)}>
+                  <MaterialCommunityIcons name="close-circle" size={28} color={Colors.gray} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView>
+                <View style={[styles.card, { margin: 0, marginTop: 10 }]}>
+                  <View style={styles.statsGrid}>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statLabel}>Ventas Totales</Text>
+                      <Text style={[styles.statValue, { color: Colors.green }]}>
+                        {fmt(selectedCierre.venta_total)}
+                      </Text>
+                    </View>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statLabel}>Compras</Text>
+                      <Text style={[styles.statValue, { color: Colors.blue }]}>
+                        {fmt(selectedCierre.compras_total)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.statsGrid, { marginTop: 15 }]}>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statLabel}>Gastos</Text>
+                      <Text style={[styles.statValue, { color: Colors.orange }]}>
+                        {fmt(selectedCierre.gasto_total)}
+                      </Text>
+                    </View>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statLabel}>Transacciones</Text>
+                      <Text style={[styles.statValue, { color: Colors.dark }]}>
+                        {selectedCierre.transacciones}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.divider} />
+                  
+                  <View style={styles.extraGrid}>
+                    <View style={[styles.extraItem, { backgroundColor: '#fff7ed' }]}>
+                      <MaterialCommunityIcons name="account-cash" size={20} color="#c2410c" />
+                      <View>
+                        <Text style={styles.extraLabel}>Retiros</Text>
+                        <Text style={styles.extraValue}>{fmt(selectedCierre.retiros_total)}</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.extraItem, { backgroundColor: '#fef3c7' }]}>
+                      <MaterialCommunityIcons name="account-group" size={20} color="#b45309" />
+                      <View>
+                        <Text style={styles.extraLabel}>Préstamos Empleado</Text>
+                        <Text style={styles.extraValue}>{fmt(selectedCierre.prestamos_total)}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={[styles.extraGrid, { marginTop: 10 }]}>
+                    <View style={[styles.extraItem, { backgroundColor: '#f0fdf4' }]}>
+                      <MaterialCommunityIcons name="currency-usd" size={20} color="#15803d" />
+                      <View>
+                        <Text style={styles.extraLabel}>Ingresos Extra</Text>
+                        <Text style={styles.extraValue}>{fmt(selectedCierre.ingresos_total)}</Text>
+                      </View>
+                    </View>
+                    <View style={{ flex: 1 }} />
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.utilidadBox}>
+                    <Text style={styles.utilidadLabel}>Utilidad Neta (Ventas - Compras - Gastos)</Text>
+                    <Text style={styles.utilidadValue}>{fmt(selectedCierre.utilidad)}</Text>
+                  </View>
+
+                  {(() => {
+                    const detalles = getDetallesSeguro(selectedCierre.json_detalle);
+                    if (!detalles) return null;
+                    return (
+                      <View style={{ marginTop: 10, paddingBottom: 10 }}>
+                        <Text style={[styles.sectionTitle, { marginHorizontal: 0, marginTop: 10 }]}>Resumen Operativo</Text>
+                        <View style={{ marginTop: 10, padding: 15, backgroundColor: '#f1f5f9', borderRadius: 12 }}>
+                          <Text style={{ fontSize: 13, color: Colors.dark, marginBottom: 5, fontWeight: '600' }}>
+                            Días trabajados: {detalles.num_dias}
+                          </Text>
+                          <Text style={{ fontSize: 13, color: Colors.dark, fontWeight: '600' }}>
+                            Gastos Administrativos: {fmt(detalles.gastos_admon)}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })()}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -298,5 +437,12 @@ const styles = StyleSheet.create({
   histUtilidad: { fontWeight: '900', color: Colors.green },
   histSub: { fontSize: 11, color: Colors.gray },
   empty: { alignItems: 'center', marginTop: 40 },
-  emptyText: { color: Colors.gray, marginTop: 10, fontSize: 14, fontWeight: '600' }
+  emptyText: { color: Colors.gray, marginTop: 10, fontSize: 14, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { 
+    backgroundColor: '#f8fafc', borderTopLeftRadius: 30, borderTopRightRadius: 30, 
+    padding: 20, maxHeight: '85%', paddingBottom: 40 
+  },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 10 },
+  modalTitle: { fontSize: 20, fontWeight: '900', color: Colors.dark }
 });

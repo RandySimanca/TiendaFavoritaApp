@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useNavigation } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -19,13 +19,20 @@ export default function PromedioScreen() {
     totalActualizado: calcularDia(dia as any).total
   }));
 
+  const mesesDisponibles = Array.from(new Set(historialConTotalRecalculado.map(d => d.fecha?.substring(0, 7)).filter(Boolean))).sort().reverse();
+  const [mesSeleccionado, setMesSeleccionado] = useState<string>('todos');
+
+  const datosFiltrados = mesSeleccionado === 'todos' 
+    ? historialConTotalRecalculado 
+    : historialConTotalRecalculado.filter(d => d.fecha?.startsWith(mesSeleccionado));
+
   // Calcular promedios
-  const totalVentas = historialConTotalRecalculado.reduce((acc, dia) => acc + dia.totalActualizado, 0);
-  const diasConVentas = historialConTotalRecalculado.filter(dia => dia.totalActualizado > 0).length;
+  const totalVentas = datosFiltrados.reduce((acc, dia) => acc + dia.totalActualizado, 0);
+  const diasConVentas = datosFiltrados.filter(dia => dia.totalActualizado > 0).length;
   const promedioDiario = diasConVentas > 0 ? totalVentas / diasConVentas : 0;
 
   // Día de mayor y menor venta
-  const diasValidos = historialConTotalRecalculado.filter(dia => dia.totalActualizado > 0);
+  const diasValidos = datosFiltrados.filter(dia => dia.totalActualizado > 0);
   const diaMax = diasValidos.length > 0 ? diasValidos.reduce((max, d) => d.totalActualizado > max.totalActualizado ? d : max, diasValidos[0]) : null;
   const diaMin = diasValidos.length > 0 ? diasValidos.reduce((min, d) => d.totalActualizado < min.totalActualizado ? d : min, diasValidos[0]) : null;
 
@@ -34,6 +41,12 @@ export default function PromedioScreen() {
     return new Date(fecha + 'T12:00:00').toLocaleDateString('es-CO', {
       day: 'numeric', month: 'short'
     });
+  }
+
+  function formatMes(yyyy_mm: string) {
+    if (yyyy_mm === 'todos') return 'Histórico Global';
+    const [y, m] = yyyy_mm.split('-');
+    return new Date(+y, +m - 1).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
   }
 
   return (
@@ -45,6 +58,23 @@ export default function PromedioScreen() {
         <Text style={styles.headerTitle}>📊 Promedio Diario</Text>
         <View style={{ width: 40 }} />
       </View>
+
+      <View style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {['todos', ...mesesDisponibles].map(mes => (
+            <TouchableOpacity 
+              key={mes}
+              style={[styles.pillMes, mesSeleccionado === mes && styles.pillMesActivo]}
+              onPress={() => setMesSeleccionado(mes)}
+            >
+              <Text style={[styles.pillMesTxt, mesSeleccionado === mes && styles.pillMesTxtActivo]}>
+                {formatMes(mes)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.card}>
         <View style={styles.iconContainer}>
@@ -197,4 +227,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontStyle: 'italic',
   },
+  pillMes: { backgroundColor: Colors.white, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: '#e2e8f0' },
+  pillMesActivo: { backgroundColor: Colors.green, borderColor: Colors.green },
+  pillMesTxt: { color: Colors.gray, fontSize: 13, fontWeight: '600', textTransform: 'capitalize' },
+  pillMesTxtActivo: { color: Colors.white, fontWeight: '800' },
 });

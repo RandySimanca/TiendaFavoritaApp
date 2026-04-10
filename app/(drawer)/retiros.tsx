@@ -75,18 +75,58 @@ export default function RetirosScreen() {
 
       {/* Resumen Totales */}
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-        <LinearGradient colors={['#14532d', '#16a34a']} style={[estilos.totalBox, { flex: 1 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <Text style={estilos.totalLabel}>Retiros</Text>
+        <LinearGradient colors={['#7f1d1d', '#dc2626']} style={[estilos.totalBox, { flex: 1 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <Text style={estilos.totalLabel}>💼 Retiros</Text>
           <Text style={estilos.totalValorSmall}>{fmt(totalRetirado)}</Text>
+          <Text style={estilos.totalCount}>{retiros.length} registro{retiros.length !== 1 ? 's' : ''}</Text>
         </LinearGradient>
         <LinearGradient colors={['#1e3a8a', '#2563eb']} style={[estilos.totalBox, { flex: 1 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <Text style={estilos.totalLabel}>Ingresos</Text>
+          <Text style={estilos.totalLabel}>💰 Ingresos</Text>
           <Text style={estilos.totalValorSmall}>{fmt(totalIngresado)}</Text>
+          <Text style={estilos.totalCount}>{ingresos.length} registro{ingresos.length !== 1 ? 's' : ''}</Text>
         </LinearGradient>
       </View>
+
+      {/* Balance neto: diferencia entre ingresos y retiros */}
+      {(() => {
+        const diferencia = totalIngresado - totalRetirado;
+        const positivo = diferencia >= 0;
+        const colores: [string, string] = positivo ? ['#14532d', '#16a34a'] : ['#7f1d1d', '#dc2626'];
+        const emoji = positivo ? '📈' : '📉';
+        const label = positivo ? 'Más ingresó que lo retirado' : 'Más retirado que lo ingresado';
+        return (
+          <LinearGradient colors={colores} style={[estilos.totalBox, estilos.balanceBox]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+            <Text style={estilos.balanceTitulo}>{emoji} Balance Neto (Ingresos − Retiros)</Text>
+            <Text style={estilos.balanceValor}>{fmt(Math.abs(diferencia))}</Text>
+            <View style={estilos.balanceDetalle}>
+              <Text style={estilos.balanceLabel}>{label}</Text>
+            </View>
+            <View style={estilos.barraComparativa}>
+              {totalRetirado + totalIngresado > 0 && (
+                <>
+                  <View style={[estilos.barraSegmento, {
+                    flex: totalRetirado / (totalRetirado + totalIngresado),
+                    backgroundColor: 'rgba(239,68,68,0.7)',
+                  }]} />
+                  <View style={[estilos.barraSegmento, {
+                    flex: totalIngresado / (totalRetirado + totalIngresado),
+                    backgroundColor: 'rgba(74,222,128,0.7)',
+                  }]} />
+                </>
+              )}
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 4 }}>
+              <Text style={estilos.barraLeyenda}>🔴 Retiros</Text>
+              <Text style={estilos.barraLeyenda}>🟢 Ingresos</Text>
+            </View>
+          </LinearGradient>
+        );
+      })()}
+
       <LinearGradient colors={['#9a3412', '#ea580c']} style={[estilos.totalBox, { marginBottom: 16 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-        <Text style={estilos.totalLabel}>Préstamos a empleados (Este Mes)</Text>
+        <Text style={estilos.totalLabel}>👤 Préstamos a empleados (Este Mes)</Text>
         <Text style={estilos.totalValorSmall}>{fmt(totalPrestamosMes)}</Text>
+        <Text style={estilos.totalCount}>{prestamosMes.length} registro{prestamosMes.length !== 1 ? 's' : ''}</Text>
       </LinearGradient>
 
       {/* Sección Retiros */}
@@ -203,4 +243,14 @@ const estilos = StyleSheet.create({
   // Pantalla vacía
   vacio: { alignItems: 'center', padding: 40 },
   vacioTexto: { color: Colors.gray, fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 10 },
+
+  // Balance neto
+  balanceBox: { marginBottom: 10, alignItems: 'center', width: '100%' },
+  balanceTitulo: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  balanceValor: { color: '#ffffff', fontSize: 28, fontWeight: '900', marginBottom: 4 },
+  balanceDetalle: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 8, paddingVertical: 3, paddingHorizontal: 12, marginBottom: 10 },
+  balanceLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: '700' },
+  barraComparativa: { flexDirection: 'row', width: '100%', height: 10, borderRadius: 6, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.15)', marginBottom: 2 },
+  barraSegmento: { height: 10 },
+  barraLeyenda: { color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '700' },
 });

@@ -79,6 +79,8 @@ interface HistorialStore {
   eliminarIngreso: (id: number) => Promise<void>;
   // Suscribirse a cambios en tiempo real
   suscribirCambios: () => void;
+  // Inyectar gasto operacional
+  inyectarGastoOperacional: (gasto: { nombre: string; valor: number; fechaStr: string }) => Promise<void>;
 }
 
 export const useHistorialStore = create<HistorialStore>((set, get) => ({
@@ -280,5 +282,22 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'retiros' }, () => get().cargar())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ingresos' }, () => get().cargar())
       .subscribe();
+  },
+
+  inyectarGastoOperacional: async (gasto) => {
+    const { historial, guardarDia } = get();
+    let dia = historial.find(h => h.fecha === gasto.fechaStr);
+    
+    if (!dia) {
+      dia = {
+        fecha: gasto.fechaStr, base: 0, cierre: 0, retiro: 0, notaRetiro: '', ingreso: 0, notaIngreso: '', prestamo: 0, notaPrestamo: '',
+        facturas: [], gastos: [], creditos: [], pagos: [], transferenciaVentas: [], transferenciaPagos: [],
+        compras: 0, totalGastos: 0, totalCreditos: 0, totalPagos: 0, totalTv: 0, totalTp: 0, ventasEf: 0, ventasTr: 0, total: 0, ts: Date.now()
+      };
+    }
+    
+    let diaSeguro = dia as DiaGuardado;
+    const nuevosGastos = [...(diaSeguro.gastos || []), { nombre: gasto.nombre, valor: gasto.valor }];
+    await guardarDia({ ...diaSeguro, gastos: nuevosGastos });
   }
 }));

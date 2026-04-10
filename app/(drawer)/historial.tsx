@@ -188,40 +188,41 @@ export default function HistorialScreen() {
               });
               const datos = meses[clave];
               return (
-                <LinearGradient key={clave} colors={['#1a5e2a', '#2d8a3e']} style={[estilos.mesBloq, { width: 320, marginRight: 16 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                  <Text style={estilos.mesNombre}>📆 {nomMes.toUpperCase()} — {datos.dias} día{datos.dias !== 1 ? 's' : ''}</Text>
-                  
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <View>
-                      <Text style={estilos.mesEtiq}>💰 Total vendido</Text>
-                      <Text style={estilos.mesValor}>{fmt(datos.ventas)}</Text>
+                <TouchableOpacity 
+                  key={clave} 
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/(drawer)/mensual')}
+                >
+                  <LinearGradient colors={['#1a5e2a', '#2d8a3e']} style={[estilos.mesBloq, { width: 320, marginRight: 16 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                    <Text style={estilos.mesNombre}>📆 {nomMes.toUpperCase()} — {datos.dias} día{datos.dias !== 1 ? 's' : ''}</Text>                  
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <View>
+                        <Text style={estilos.mesEtiq}>💰 Total vendido</Text>
+                        <Text style={estilos.mesValor}>{fmt(datos.ventas)}</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={estilos.mesEtiq}>🛒 Total compras</Text>
+                        <Text style={estilos.mesValor}>{fmt(datos.compras)}</Text>
+                      </View>
                     </View>
-                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={estilos.mesEtiq}>🛒 Total compras</Text>
-                      <Text style={estilos.mesValor}>{fmt(datos.compras)}</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', paddingTop: 10 }}>
+                      <View>
+                        <Text style={estilos.mesEtiq}>📊 Promedio de venta</Text>
+                        <Text style={[estilos.mesValor, { fontSize: 17 }]}>{fmt(datos.ventas / (datos.dias || 1))}</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={estilos.mesEtiq}>📈 Utilidades 15%</Text>
+                        <Text style={[estilos.mesValor, { color: '#ffe066' }]}>{fmt(datos.ventas * 0.15)}</Text>
+                      </View>
                     </View>
-                    {/*<View style={{ alignItems: 'flex-end' }}>
-                      <Text style={estilos.mesEtiq}>📈 Utilidades 15%</Text>
-                      <Text style={[estilos.mesValor, { color: '#ffe066' }]}>{fmt(datos.ventas * 0.15)}</Text>
-                    </View>*/}
-                  </View>
-
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', paddingTop: 10 }}>
-                    <View>
-                      <Text style={estilos.mesEtiq}>📊 Promedio de venta</Text>
-                      <Text style={[estilos.mesValor, { fontSize: 17 }]}>{fmt(datos.ventas / (datos.dias || 1))}</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 10 }}>
+                      <View>
+                        <Text style={estilos.mesEtiq}>📤 Gastos Diarios (Caja)</Text>
+                        <Text style={[estilos.mesValor, { fontSize: 17, color: '#fca5a5' }]}>{fmt(datos.gastos)}</Text>
+                      </View>
                     </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={estilos.mesEtiq}>📈 Utilidades 15%</Text>
-                      <Text style={[estilos.mesValor, { color: '#ffe066' }]}>{fmt(datos.ventas * 0.15)}</Text>
-                    </View>
-
-                    {/*<View style={{ alignItems: 'flex-end' }}>
-                      <Text style={estilos.mesEtiq}>🛒 Total compras</Text>
-                      <Text style={[estilos.mesValor, { fontSize: 17, color: '#bbf7d0' }]}>{fmt(datos.compras)}</Text>
-                    </View>*/}
-                  </View>
-                </LinearGradient>
+                  </LinearGradient>
+                </TouchableOpacity>
               );
             })}
           </ScrollView>
