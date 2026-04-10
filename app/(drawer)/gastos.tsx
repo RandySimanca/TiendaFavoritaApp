@@ -275,6 +275,7 @@ export default function GastosScreen() {
               value={concepto} 
               onChangeText={setConcepto} 
               placeholder="Nombre del servicio o gasto" 
+              placeholderTextColor="#94a3b8"
             />
 
             <Text style={styles.inputLabel}>Monto Pagado</Text>
@@ -283,6 +284,7 @@ export default function GastosScreen() {
               value={monto} 
               onChangeText={t => setMonto(formatInput(t))} 
               keyboardType="numeric" 
+              placeholderTextColor="#94a3b8"
             />
 
             <Text style={styles.inputLabel}>Categoría</Text>
@@ -418,9 +420,9 @@ export default function GastosScreen() {
                 ))}
 
                 <Text style={[styles.formTitle, { marginTop: 25, fontSize: 15 }]}>+ Agregar Gasto Fijo</Text>
-                <TextInput style={styles.input} placeholder="Concepto (ej: Arriendo)" value={recConcepto} onChangeText={setRecConcepto} />
-                <TextInput style={[styles.input, {marginTop: 10}]} placeholder="Monto" value={recMonto} onChangeText={t => setRecMonto(formatInput(t))} keyboardType="numeric" />
-                <TextInput style={[styles.input, {marginTop: 10}]} placeholder="Día del mes (1 al 31)" value={recDia} onChangeText={setRecDia} keyboardType="numeric" />
+                <TextInput style={styles.input} placeholder="Concepto (ej: Arriendo)" placeholderTextColor="#94a3b8" value={recConcepto} onChangeText={setRecConcepto} />
+                <TextInput style={[styles.input, {marginTop: 10}]} placeholder="Monto" placeholderTextColor="#94a3b8" value={recMonto} onChangeText={t => setRecMonto(formatInput(t))} keyboardType="numeric" />
+                <TextInput style={[styles.input, {marginTop: 10}]} placeholder="Día del mes (1 al 31)" placeholderTextColor="#94a3b8" value={recDia} onChangeText={setRecDia} keyboardType="numeric" />
                 
                 <Text style={styles.inputLabel}>¿De dónde sale este pago fijo?</Text>
                 <View style={styles.sourceRow}>
