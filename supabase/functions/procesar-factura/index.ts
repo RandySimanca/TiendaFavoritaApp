@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,11 +26,83 @@ serve(async (req: Request) => {
 
     const { image_url } = body
     const base64Data = image_url.includes(",") ? image_url.split(",")[1] : image_url
-    const prompt = "Analiza esta factura y devuelve SOLO un JSON: { \"proveedor\": \"string\", \"resumen\": \"string\", \"total\": number }. Si no ves el total, usa 0.";
+    const prompt = `Analiza esta factura y devuelve SOLO un JSON con esta estructura:
+    {
+      "proveedor": "string",
+      "resumen": "string",
+      "total": number,
+      "productos": [
+        { "nombre": "string", "precio_compra": number, "unidad": "string (unid, kg, lb, etc.)" }
+      ]
+    }
+    Si no ves productos o el total, usa valores por defecto (0 o []).`;
 
-    // 1. ESTRATEGIA A: OpenAI (Muy estable y rápido con gpt-4o-mini)
+    // 1. ESTRATEGIA A: Gemini
+    if (geminiKey) {
+      console.log("Iniciando procesamiento con Gemini...");
+      const visionModels = [
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite"
+];
+
+      for (const modelName of visionModels) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
+          console.log(`Llamando a Gemini (${modelName})...`);
+          
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: prompt },
+                  { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+                ]
+              }]
+            })
+          });
+
+          console.log(`Status HTTP (${modelName}):`, response.status);
+          const result = await response.json();
+
+          if (result.error) {
+            console.error(`Error detallado de Google (${modelName}):`, JSON.stringify(result.error));
+            continue;
+          }
+
+          const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (!text) {
+            console.warn(`Respuesta vacía de ${modelName}, intentando siguiente...`);
+            continue;
+          }
+
+          console.log(`Éxito con ${modelName}.`);
+          
+          // Limpieza profunda de JSON
+          let cleanText = text;
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            cleanText = jsonMatch[0];
+          } else {
+            cleanText = text.replace(/```json|```/g, "").trim();
+          }
+
+          const data = JSON.parse(cleanText);
+          
+          return new Response(JSON.stringify(data), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          });
+        } catch (e: any) {
+          console.warn(`Intento fallido con ${modelName}:`, e.message);
+        }
+      }
+    }
+
+    // 2. ESTRATEGIA B: OpenAI (fallback)
     if (openaiKey) {
-      console.log("Usando OpenAI (GPT-4o)...");
+      console.log("Usando OpenAI (GPT-4o) como fallback...");
       try {
         const resp = await fetch("https://api.openai.com/v1/chat/completions", {
           method: 'POST',
@@ -63,70 +135,23 @@ serve(async (req: Request) => {
           status: 200
         });
       } catch (e: any) {
-        console.warn("Fallo OpenAI, intentando alternativas...", e.message);
+        console.warn("Fallo OpenAI:", e.message);
       }
     }
 
-    // 2. ESTRATEGIA B: Gemini (Fallback Multimodelo)
-    if (geminiKey) {
-      console.log("Iniciando procesamiento IA (Gemini)...");
-      const visionModels = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro-vision"];
-      let lastError = null;
-
-      for (const modelName of visionModels) {
-        try {
-          console.log(`Intentando con modelo: ${modelName}...`);
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { text: prompt },
-                  { inline_data: { mime_type: "image/jpeg", data: base64Data } }
-                ]
-              }]
-            })
-          });
-
-          const result = await response.json();
-          if (result.error) {
-            if (result.error.code === 404 || result.error.status === "NOT_FOUND") {
-              continue;
-            }
-            throw new Error(result.error.message);
-          }
-
-          const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          if (!text) continue;
-
-          console.log(`Éxito con ${modelName}.`);
-          const match = text.match(/\{[\s\S]*\}/)
-          if (!match) continue;
-          
-          const data = JSON.parse(match[0]);
-          return new Response(JSON.stringify(data), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 200,
-          });
-        } catch (e: any) {
-          lastError = e.message;
-        }
-      }
-      console.warn("Fallo total en Gemini:", lastError);
-    }
-
-    // 3. ESTRATEGIA C: Claude (Comentado/Deshabilitado por créditos)
-    if (anthropicKey && !openaiKey && !geminiKey) {
-       // ... lógia de Claude si fuera necesaria
-    }
-
-    // Falló todo
-    throw new Error("No hay API Key configurada o todos los proveedores fallaron.");
+    // Fallo final
+    const reason = !geminiKey && !openaiKey && !anthropicKey 
+      ? "Faltan las API Keys en Supabase (GEMINI_API_KEY, etc.)" 
+      : "Todos los proveedores de IA fallaron. Revisa tus créditos o que la imagen sea legible.";
+      
+    throw new Error(reason);
 
   } catch (err: any) {
     console.error("Fallo Crítico:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ 
+      error: err.message, 
+      details: "Revisa los logs de Supabase para ver el error detallado de Google/OpenAI." 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500
     })

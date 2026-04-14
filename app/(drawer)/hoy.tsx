@@ -8,10 +8,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useLocalSearchParams } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { CardSection }   from '../../components/ui/CardSection';
@@ -24,14 +22,12 @@ import { useAuthStore }  from '../../store/authStore';
 import { Colors }        from '../../constants/Colors';
 import { fmt, formatInput, parseInput, calcularDia } from '../../utils/calcular';
 import { PerfilModal }   from '../../components/modals/PerfilModal';
-import { PDFService }    from '../../utils/pdfService';
 
 export default function HoyScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
   const scrollRef = useRef<ScrollView>(null);
   const { fecha: fechaParam } = useLocalSearchParams();
   const esAdmin = useAuthStore(s => s.esDuena());
-  const rol = useAuthStore(s => s.rol);
   const perfil = useAuthStore(s => s.perfil);
 
   const {
@@ -52,12 +48,37 @@ export default function HoyScreen() {
 
   useEffect(() => {
     cargarDiaActual(fechaParam as string);
-  }, [fechaParam]);
+  }, [fechaParam, cargarDiaActual]);
 
   useEffect(() => {
     const res = calcularDia(useDiaStore.getState());
     setResultado(res);
   }, [base, cierre, retiro, ingreso, prestamo, facturas, gastos, creditos, pagos, transferenciaVentas, transferenciaPagos]);
+
+  const handleSeleccionarGaleria = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Error', 'Acceso a galeria denegado.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      base64: true,
+      quality: 0.4,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      setGuardandoStore(true);
+      try {
+        await procesarFacturaIA(result.assets[0].base64);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (err: any) {
+        Alert.alert('Error IA', err.message);
+      } finally {
+        setGuardandoStore(false);
+      }
+    }
+  };
 
   const handleTomarFoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -68,7 +89,7 @@ export default function HoyScreen() {
 
     const result = await ImagePicker.launchCameraAsync({
       base64: true,
-      quality: 0.5,
+      quality: 0.4,
     });
 
     if (!result.canceled && result.assets[0].base64) {
@@ -106,7 +127,7 @@ export default function HoyScreen() {
       const estadoCompleto = useDiaStore.getState().capturarEstado();
       await useHistorialStore.getState().guardarDia(estadoCompleto);
       Alert.alert('Guardado', 'El cuadre del dia se ha sincronizado correctamente.');
-    } catch (err) {
+    } catch {
       Alert.alert('Error', 'No se pudo guardar el historial.');
     }
   };
@@ -286,19 +307,32 @@ export default function HoyScreen() {
         </CardSection>
 
         <CardSection icono="🛒" titulo="PASO 2 — Compras del día" color="blue" badge={facturas.length}>
-          <TouchableOpacity style={estilos.fotoBtn} onPress={handleTomarFoto} disabled={guardandoStore}>
-            {guardandoStore ? (
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <ActivityIndicator color={Colors.white} size="small" />
-                <Text style={estilos.fotoBtnTexto}>La IA está leyendo...</Text>
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+            <TouchableOpacity style={[estilos.fotoBtn, { flex: 1, marginBottom: 0 }]} onPress={handleTomarFoto} disabled={guardandoStore}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Text style={{ fontSize: 20 }}>📷</Text>
+                <Text style={[estilos.fotoBtnTexto, { fontSize: 13 }]}>Cámara</Text>
               </View>
-            ) : (
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Text style={{ fontSize: 22 }}>📷</Text>
-                <Text style={estilos.fotoBtnTexto}>Tomar foto de factura</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[estilos.fotoBtn, { flex: 1, marginBottom: 0, backgroundColor: Colors.teal }]} 
+              onPress={handleSeleccionarGaleria} 
+              disabled={guardandoStore}
+            >
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Text style={{ fontSize: 20 }}>🖼️</Text>
+                <Text style={[estilos.fotoBtnTexto, { fontSize: 13 }]}>Galería</Text>
               </View>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
+
+          {guardandoStore && (
+            <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center', marginBottom: 12 }}>
+              <ActivityIndicator color={Colors.blue} size="small" />
+              <Text style={{ color: Colors.blue, fontWeight: '800', fontSize: 13 }}>La IA está leyendo...</Text>
+            </View>
+          )}
 
           <TouchableOpacity 
             style={[estilos.btnManual, { marginBottom: 12 }]} 
@@ -324,11 +358,11 @@ export default function HoyScreen() {
           <TotalBox label="Total compras:" valor={facturas.reduce((s, f) => s + f.total, 0)} color="blue" />
         </CardSection>
 
-       {/*<CardSection icono="📤" titulo="PASO 3 — Gastos del día" color="orange">
+       <CardSection icono="📤" titulo="PASO 3 — Gastos del día" color="orange">
           {renderFilas('gastos', 'Para qué fue...', Colors.orange)}
         </CardSection>
 
-        <CardSection icono="👥" titulo="PASO 4 — Créditos (fiados)" color="blue">
+        {/*<CardSection icono="👥" titulo="PASO 4 — Créditos (fiados)" color="blue">
           {renderFilas('creditos', 'Nombre cliente...', Colors.blue)}
         </CardSection> */}
 

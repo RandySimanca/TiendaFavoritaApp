@@ -13,6 +13,7 @@ import {
 } from '../utils/database';
 import { supabase } from '../utils/supabase';
 import { useHistorialStore } from './historialStore';
+import { usePreciosStore } from './preciosStore';
 
 // (Clave dinámica basada en fecha se usa ahora)
 
@@ -261,8 +262,15 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
         body: { image_url: base64Image }
       });
 
-      if (error) throw error;
-      
+      if (error) {
+        // Intentar extraer el mensaje detallado si viene en el cuerpo
+        let errorMessage = error.message;
+        if (error.context && typeof error.context.json === 'function') {
+           const body = await error.context.json().catch(() => null);
+           if (body && body.error) errorMessage = `${body.error}. ${body.details || ''}`;
+        }
+        throw new Error(errorMessage);
+      }
       if (data) {
         get().agregarFactura({
           id: Date.now(),
@@ -270,6 +278,14 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
           resumen: data.resumen || '',
           total: data.total || 0,
         });
+
+        // Sincronizar precios si vienen productos
+        if (data.productos && Array.isArray(data.productos)) {
+          usePreciosStore.getState().actualizarDesdeFactura(
+            data.productos, 
+            data.proveedor || 'Proveedor desconocido'
+          );
+        }
       }
     } catch (error: any) {
       console.error("[IA] Error procesando factura IA:", error.message || error);

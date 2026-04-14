@@ -13,7 +13,7 @@ import { fmt, parseInput, formatInput } from '../../utils/calcular';
 import { Colors } from '../../constants/Colors';
 
 const CATEGORIAS = [
-  { id: 'arriendo', nombre: 'Arriendo', icon: 'home-city' },
+  {/*{ id: 'arriendo', nombre: 'Arriendo', icon: 'home-city' },*/},
   { id: 'luz', nombre: 'Servicio de Luz', icon: 'lightning-bolt' },
   { id: 'agua', nombre: 'Servicio de Agua', icon: 'water' },
   { id: 'nomina', nombre: 'Nómina/Pagos', icon: 'account-cash' },

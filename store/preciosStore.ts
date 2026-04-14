@@ -36,6 +36,8 @@ interface PreciosStore {
   editar: (idx: number, p: Precio) => Promise<void>;
   // Elimina un producto por índice
   eliminar: (idx: number) => Promise<void>;
+  // Actualiza o agrega productos desde una factura procesada por IA
+  actualizarDesdeFactura: (productos: any[], proveedor: string) => Promise<void>;
   // Suscribirse a cambios en tiempo real
   suscribirCambios: () => void;
 }
@@ -160,6 +162,55 @@ export const usePreciosStore = create<PreciosStore>((set, get) => ({
       }
     } catch (error) {
       console.error('Error eliminando precio local:', error);
+    }
+  },
+
+  actualizarDesdeFactura: async (productos, proveedor) => {
+    try {
+      const { precios, agregar, editar } = get();
+      console.log(`[Sinc] Procesando ${productos.length} items de ${proveedor}`);
+
+      for (const pF of productos) {
+        // Validar integridad basica
+        if (!pF.nombre || typeof pF.precio_compra !== 'number' || pF.precio_compra <= 0) {
+          console.warn(`[Sinc] Producto ignorado por datos invalidos:`, pF);
+          continue;
+        }
+
+        const nom = pF.nombre.toLowerCase().trim();
+        const idx = precios.findIndex(p => p.nombre.toLowerCase().trim() === nom);
+
+        if (idx !== -1) {
+          const pE = precios[idx];
+          // Solo actualizar si el precio cambio significativamente (evitar spam)
+          if (pE.compra !== pF.precio_compra) {
+            await editar(idx, {
+              ...pE,
+              compra: pF.precio_compra,
+              proveedor: proveedor,
+              unidad: pF.unidad || pE.unidad
+            });
+          }
+        } else {
+          // Nuevo: Margen +20% redondeado a 50
+          let ventaM = Math.round((pF.precio_compra * 1.20) / 50) * 50;
+          
+          // Salvaguarda para productos muy baratos (minimo ganar 100 pesos)
+          if (ventaM <= pF.precio_compra) {
+            ventaM = pF.precio_compra + 100;
+          }
+
+          await agregar({
+            nombre: pF.nombre.trim(),
+            proveedor: proveedor,
+            compra: pF.precio_compra,
+            venta: ventaM,
+            unidad: (pF.unidad || 'und').toLowerCase().trim()
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error sincronizando precios desde factura:', e);
     }
   },
 
