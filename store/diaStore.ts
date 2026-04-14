@@ -8,8 +8,7 @@ import { calcularDia, EstadoDia, ResultadoCuadre, Factura, FilaDato } from '../u
 import { 
   dbSetBorrador, 
   dbGetBorrador, 
-  dbDeleteBorrador,
-  dbGetHistorial
+  dbDeleteBorrador
 } from '../utils/database';
 import { supabase } from '../utils/supabase';
 import { useHistorialStore } from './historialStore';
@@ -164,7 +163,7 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
         datos_json: estado,
         updated_at: new Date().toISOString()
       }).then();
-    } catch (error) {}
+    } catch {}
   },
 
   cargarDiaActual: async (fechaManual?: string) => {
@@ -200,7 +199,7 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
         set({ ...estadoBlanco(), fecha: f });
       }
       set({ cargando: false });
-    } catch (error) {
+    } catch {
       set({ cargando: false });
     }
   },
@@ -241,7 +240,7 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
     try { 
       await dbDeleteBorrador(clave); 
       supabase.from('borradores').delete().eq('key', clave).then();
-    } catch (error) {}
+    } catch {}
   },
 
   suscribirCambios: () => {
