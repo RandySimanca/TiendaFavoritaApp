@@ -235,6 +235,25 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
           fecha: estado.fecha, valor: estado.ingreso, nota: estado.notaIngreso || '', timestamp: Date.now()
         }).then();
       }
+
+      // ── Retiro automático por transferencias (Ventas + Pagos) ──────────────
+      const totalTransferencias = (estado.totalTv || 0) + (estado.totalTp || 0);
+      const notaAutoTransferencia = '📲 Transferencias (Ventas + Pagos) — dinero al cel/banco, no a caja';
+      
+      const retiroAutoAnteriorTrans = get().retiros.find(
+        r => r.fecha === estado.fecha && r.nota === notaAutoTransferencia
+      );
+      if (retiroAutoAnteriorTrans?.id !== undefined) {
+        await dbDeleteRetiro(retiroAutoAnteriorTrans.id);
+        supabase.from('retiros').delete().eq('id', retiroAutoAnteriorTrans.id).then();
+      }
+      if (totalTransferencias > 0) {
+        await dbInsertRetiro(estado.fecha, totalTransferencias, notaAutoTransferencia);
+        supabase.from('retiros').insert({
+          fecha: estado.fecha, valor: totalTransferencias, nota: notaAutoTransferencia, timestamp: Date.now()
+        }).then();
+      }
+      // ───────────────────────────────────────────────────────────────────────
       
       // Recargar de local para asegurar consistencia UI
       await get().cargar();
@@ -245,9 +264,28 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
 
   eliminarDia: async (fecha) => {
     try {
-      // 1. Local
+      // 1. Eliminar retiros dependientes de ese día
+      const retirosDia = get().retiros.filter(r => r.fecha === fecha);
+      for (const r of retirosDia) {
+        if (r.id !== undefined) {
+          await dbDeleteRetiro(r.id);
+          supabase.from('retiros').delete().eq('id', r.id).then();
+        }
+      }
+      
+      // 2. Eliminar ingresos dependientes de ese día
+      const ingresosDia = get().ingresos.filter(i => i.fecha === fecha);
+      for (const i of ingresosDia) {
+        if (i.id !== undefined) {
+          await dbDeleteIngreso(i.id);
+          supabase.from('ingresos').delete().eq('id', i.id).then();
+        }
+      }
+
+      // 3. Eliminar el día del historial
+      // Local
       await dbDeleteHistorial(fecha);
-      // 2. Cloud
+      // Cloud
       supabase.from('historial').delete().eq('fecha', fecha).then();
       
       await get().cargar();

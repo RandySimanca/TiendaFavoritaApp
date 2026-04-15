@@ -7,8 +7,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ResultadoCuadre } from '../../utils/calcular';
-import { fmt } from '../../utils/calcular';
+import { ResultadoCuadre, fmt } from '../../utils/calcular';
 import { Colors } from '../../constants/Colors';
 
 interface Props {
@@ -59,16 +58,27 @@ export function ResultadoDia({ base, cierre, retiro, ingreso, prestamo, resultad
       {prestamo > 0 && (
         <Linea etiqueta="👤 (+) Préstamo empleado:" valor={fmt(prestamo)} />
       )}
+      {resultado.totalTp > 0 && (
+        <Linea etiqueta="📲 (+) Pagos transf. (= retiro):" valor={fmt(resultado.totalTp)} esTransferencia />
+      )}
       <Linea etiqueta="(−) Plata al abrir:"  valor={fmt(base)} />
       {ingreso > 0 && (
         <Linea etiqueta="(−) Otros ingresos (base):" valor={fmt(ingreso)} />
       )}
       <Linea etiqueta="(+) Compras pagadas:" valor={fmt(resultado.compras)} />
       <Linea etiqueta="(+) Gastos del día:"  valor={fmt(resultado.totalGastos)} />
-      <Linea etiqueta="(+) Créditos fiados:" valor={fmt(resultado.totalCreditos)} />
-      <Linea etiqueta="(−) Pagos efectivo:"  valor={fmt(resultado.totalPagos)} />
-      <Linea etiqueta="📲 Ventas por transf.:"        valor={fmt(resultado.totalTv)} esTransferencia />
-      <Linea etiqueta="📲 Pagos recibidos transf.:"   valor={fmt(resultado.totalTp)} esTransferencia />
+      {resultado.totalTv > 0 && (
+        <Linea etiqueta="📲 (+) Ventas por transf.:" valor={fmt(resultado.totalTv)} esTransferencia />
+      )}
+
+      {/* Nota explicativa para el dueño */}
+      {(resultado.totalTp > 0 || resultado.totalTv > 0) && (
+        <View style={estilos.notaTransf}>
+          <Text style={estilos.notaTransfTexto}>
+            ℹ️ Las transferencias ({fmt(resultado.totalTp + resultado.totalTv)}) se cuentan como retiros/salidas de caja. Ese dinero fue al celular o cuenta bancaria.
+          </Text>
+        </View>
+      )}
 
       {/* Total principal */}
       <View style={estilos.totalBox}>
@@ -90,6 +100,7 @@ export function ResultadoDia({ base, cierre, retiro, ingreso, prestamo, resultad
     </LinearGradient>
   );
 }
+
 
 const estilos = StyleSheet.create({
   contenedor: {
@@ -168,5 +179,17 @@ const estilos = StyleSheet.create({
     color: Colors.white,
     fontSize: 14,
     fontWeight: '900',
+  },
+  notaTransf: {
+    backgroundColor: 'rgba(153,246,228,0.15)',
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 8,
+  },
+  notaTransfTexto: {
+    color: 'rgba(153,246,228,0.9)',
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 16,
   },
 });

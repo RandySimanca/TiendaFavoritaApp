@@ -5,13 +5,12 @@
 // ═══════════════════════════════════════════════════
 
 import React, { useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert, Platform,
-} from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useNavigation, useRouter } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import { useHistorialStore, DiaGuardado } from '../../store/historialStore';
 import { useAuthStore } from '../../store/authStore';
@@ -69,6 +68,15 @@ export default function HistorialScreen() {
         {seccion('📲 Ventas por transferencia', d.transferenciaVentas)}
         {seccion('📲 Pagos deuda transferencia', d.transferenciaPagos)}
 
+        {/* Nota explicativa de transferencias */}
+        {((d.totalTp || 0) > 0 || (d.totalTv || 0) > 0) && (
+          <View style={{ backgroundColor: '#ccfbf1', padding: 10, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#99f6e4' }}>
+            <Text style={{ color: '#0f766e', fontSize: 12, fontWeight: '700', lineHeight: 17 }}>
+              📲 Las transferencias ({fmt((d.totalTp || 0) + (d.totalTv || 0))}) se contaron como retiros de caja. Ese dinero fue al celular o cuenta bancaria del dueño.
+            </Text>
+          </View>
+        )}
+
         {/* Mensaje explicativo de Pagos en efectivo recibidos */}
         {(d.totalPagos > 0) && (
           <View style={{ backgroundColor: '#e0e7ff', padding: 8, borderRadius: 8, marginBottom: 8, flexDirection: 'row', alignItems: 'center' }}>
@@ -96,7 +104,7 @@ export default function HistorialScreen() {
         {(d.retiro || 0) > 0 && (
           <View style={[estilos.detTotalBox, { backgroundColor: '#fef3c7', marginTop: 4 }]}>
             <View style={{ flex: 1 }}>
-              <Text style={[estilos.detTotalLabel, { color: '#92400e' }]}>💼 Retiro del día:</Text>
+              <Text style={[estilos.detTotalLabel, { color: '#92400e' }]}>💼 Retiro del día (efectivo):</Text>
               {d.notaRetiro ? (
                 <Text style={{ fontSize: 11, color: '#a16207', fontWeight: '600', marginTop: 2 }}>
                   📝 {d.notaRetiro}
@@ -104,6 +112,19 @@ export default function HistorialScreen() {
               ) : null}
             </View>
             <Text style={[estilos.detTotalValor, { color: '#92400e' }]}>{fmt(d.retiro || 0)}</Text>
+          </View>
+        )}
+
+        {/* Retiro Automático Transferencias */}
+        {((d.totalTv || 0) + (d.totalTp || 0)) > 0 && (
+          <View style={[estilos.detTotalBox, { backgroundColor: Colors.tealLight, marginTop: 4 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[estilos.detTotalLabel, { color: Colors.teal }]}>📲 Retiro Autom. (Transferencias):</Text>
+              <Text style={{ fontSize: 11, color: '#0f766e', fontWeight: '600', marginTop: 2 }}>
+                📝 Dinero al cel/banco, restado del físico
+              </Text>
+            </View>
+            <Text style={[estilos.detTotalValor, { color: Colors.teal }]}>{fmt((d.totalTv || 0) + (d.totalTp || 0))}</Text>
           </View>
         )}
 
@@ -157,7 +178,7 @@ export default function HistorialScreen() {
     return (
       <View style={estilos.vacio}>
         <Text style={estilos.vacioIcono}>📭</Text>
-        <Text style={estilos.vacioTexto}>Aún no hay días guardados.{'\n'}Guarda el primer día desde la pestaña "Hoy".</Text>
+        <Text style={estilos.vacioTexto}>Aún no hay días guardados.{'\n'}Guarda el primer día desde la pestaña &quot;Hoy&quot;.</Text>
       </View>
     );
   }
@@ -281,7 +302,7 @@ export default function HistorialScreen() {
               {d.totalGastos   > 0 && <View style={[estilos.pill, { backgroundColor: Colors.orangeLight }]}><Text style={[estilos.pillTxt, { color: Colors.orange  }]}>📤 {fmt(d.totalGastos)}</Text></View>}
               {d.totalCreditos > 0 && <View style={[estilos.pill, { backgroundColor: Colors.blueLight   }]}><Text style={[estilos.pillTxt, { color: Colors.blue    }]}>👥 {fmt(d.totalCreditos)}</Text></View>}
               {d.totalPagos    > 0 && <View style={[estilos.pill, { backgroundColor: Colors.purpleLight }]}><Text style={[estilos.pillTxt, { color: Colors.purple  }]}>💵 {fmt(d.totalPagos)}</Text></View>}
-              {d.totalTv       > 0 && <View style={[estilos.pill, { backgroundColor: Colors.tealLight   }]}><Text style={[estilos.pillTxt, { color: Colors.teal    }]}>📲 {fmt(d.totalTv)}</Text></View>}
+              {((d.totalTv || 0) + (d.totalTp || 0)) > 0 && <View style={[estilos.pill, { backgroundColor: Colors.tealLight   }]}><Text style={[estilos.pillTxt, { color: Colors.teal    }]}>📲 {fmt((d.totalTv || 0) + (d.totalTp || 0))}</Text></View>}
               {(d.prestamo || 0) > 0 && <View style={[estilos.pill, { backgroundColor: '#ffedd5' }]}><Text style={[estilos.pillTxt, { color: '#9a3412' }]}>👤 {fmt(d.prestamo)}</Text></View>}
               <View style={[estilos.pill, { backgroundColor: Colors.greenLight }]}>
                 <Text style={[estilos.pillTxt, { color: Colors.greenDark }]}>💵 {fmt(vEfectivo)}</Text>

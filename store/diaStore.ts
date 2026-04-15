@@ -68,8 +68,8 @@ interface DiaStore extends EstadoDia {
   autoGuardar: () => Promise<void>;
   // Carga el borrador guardado al abrir la app o al cambiar fecha
   cargarDiaActual: (fechaManual?: string) => Promise<void>;
-  // Limpia el formulario para un nuevo día (opcionalmente hereda base)
-  limpiar: (nuevaBase?: number) => Promise<void>;
+  // Limpia el formulario para un nuevo día e hereda automáticamente la base
+  limpiar: () => Promise<void>;
   // Captura el estado completo para guardar en historial
   capturarEstado: () => any;
   // Suscribirse a cambios en tiempo real
@@ -196,7 +196,13 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
         get()._aplicarDatos(cloud.datos_json);
       } else {
         // 4. Día nuevo completamente blanco
-        set({ ...estadoBlanco(), fecha: f });
+        const hist = useHistorialStore.getState().historial;
+        const lastDay = hist.length > 0 ? hist[0] : null;
+        let baseHeredada = 0;
+        if (lastDay) {
+          baseHeredada = Math.max(0, (lastDay.cierre || 0));
+        }
+        set({ ...estadoBlanco(), fecha: f, base: baseHeredada });
       }
       set({ cargando: false });
     } catch {
@@ -228,13 +234,24 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
     get().calcular();
   },
 
-  limpiar: async (nuevaBase?: number) => {
+  limpiar: async () => {
     const f = new Date().toISOString().slice(0, 10);
     const clave = `borrador_${f}`;
+    
+    // Buscar el último día guardado para usar su efectivo sobrante como base
+    const hist = useHistorialStore.getState().historial;
+    const lastDay = hist.length > 0 ? hist[0] : null;
+    let baseHeredada = 0;
+    if (lastDay) {
+      // El efectivo físico en la caja al empezar el día debería ser
+      // lo que se contó al cerrar menos lo que el dueño retiró.
+      baseHeredada = Math.max(0, (lastDay.cierre || 0));
+    }
+
     set({ 
       fecha: f, 
       ...estadoBlanco(), 
-      base: nuevaBase ?? 0,
+      base: baseHeredada,
       resultado: null 
     });
     try { 

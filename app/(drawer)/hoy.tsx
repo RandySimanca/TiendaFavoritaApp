@@ -133,9 +133,9 @@ export default function HoyScreen() {
   };
 
   const handleNuevoDia = () => {
-    Alert.alert('Nuevo dia?', 'Se limpiara el formulario y se usara el cierre de hoy como base de manana.', [
+    Alert.alert('¿Nuevo día?', 'Se limpiará el formulario y se heredará automáticamente el cierre de la última jornada como base de hoy.', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Confirmar', onPress: () => limpiar(cierre) }
+      { text: 'Confirmar', onPress: () => limpiar() }
     ]);
   };
 
@@ -387,7 +387,7 @@ export default function HoyScreen() {
           inicialmenteExpandido={false}
         >
           <View style={estilos.notaContTeal}>
-            <Text style={estilos.notaTextoTeal}>📲 Dinero que llega al celular/cuenta — NO entra a caja física.</Text>
+            <Text style={estilos.notaTextoTeal}>📲 Ventas por transferencia: se suman al total del día. Al guardar, se genera automáticamente un retiro con nota aclaratoria para que el dinero no afecte el efectivo de caja.</Text>
           </View>
           
           <Text style={estilos.subSeccion}>VENTAS por transferencia:</Text>

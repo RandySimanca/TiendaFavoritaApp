@@ -5,18 +5,16 @@
 // ═══════════════════════════════════════════════════
 
 import React from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
-import { useNavigation } from 'expo-router';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { useNavigation, useRouter } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useHistorialStore } from '../../store/historialStore';
 import { useAuthStore } from '../../store/authStore';
 import { fmt } from '../../utils/calcular';
 import { Colors } from '../../constants/Colors';
-import { useRouter } from 'expo-router';
 
 export default function RetirosScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
@@ -45,6 +43,15 @@ export default function RetirosScreen() {
     return new Date(fecha + 'T12:00:00').toLocaleDateString('es-CO', {
       weekday: 'long', day: 'numeric', month: 'long',
     });
+  }
+
+  // Detecta si un retiro fue generado automáticamente por una transferencia
+  const NOTA_AUTO_UNIFICADA = '📲 Transferencias (Ventas + Pagos) — dinero al cel/banco, no a caja';
+  const NOTA_AUTO_TV = '📲 Ventas por transferencia — dinero al cel/banco, no a caja';
+  const NOTA_AUTO_TP = '📲 Pagos de deuda (transferencia) — dinero al cel/banco, no a caja';
+  
+  function esRetiroAutoTransferencia(nota?: string) {
+    return nota === NOTA_AUTO_UNIFICADA || nota === NOTA_AUTO_TV || nota === NOTA_AUTO_TP;
   }
 
   // Confirma y elimina un registro
@@ -136,22 +143,33 @@ export default function RetirosScreen() {
           <Text style={estilos.vacioTexto}>No hay retiros registrados.</Text>
         </View>
       ) : (
-        retiros.map((r, i) => (
-          <View key={`ret-${i}`} style={estilos.item}>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.itemFecha}>{fechaLegible(r.fecha)}</Text>
-              <Text style={r.nota ? estilos.itemNota : estilos.itemSub}>
-                {r.nota ? `📝 ${r.nota}` : 'Retiro para caja personal'}
-              </Text>
+        retiros.map((r, i) => {
+          const esAutoTv = esRetiroAutoTransferencia(r.nota);
+          return (
+            <View
+              key={`ret-${i}`}
+              style={[
+                estilos.item,
+                esAutoTv && estilos.itemAutoTv,
+              ]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={estilos.itemFecha}>{fechaLegible(r.fecha)}</Text>
+                <Text style={esAutoTv ? estilos.itemNotaAutoTv : (r.nota ? estilos.itemNota : estilos.itemSub)}>
+                  {r.nota || 'Retiro para caja personal'}
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={[estilos.itemValorRet, esAutoTv && { color: Colors.teal }]}>
+                  {fmt(r.valor)}
+                </Text>
+                <TouchableOpacity style={estilos.btnDel} onPress={() => r.id !== undefined && handleEliminar(r.id, 'retiro')}>
+                  <Text style={{ color: Colors.red, fontSize: 18, fontWeight: '800' }}>×</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={estilos.itemValorRet}>{fmt(r.valor)}</Text>
-              <TouchableOpacity style={estilos.btnDel} onPress={() => r.id !== undefined && handleEliminar(r.id, 'retiro')}>
-                <Text style={{ color: Colors.red, fontSize: 18, fontWeight: '800' }}>×</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))
+          );
+        })
       )}
 
       {/* Sección Ingresos */}
@@ -230,11 +248,18 @@ const estilos = StyleSheet.create({
     marginBottom: 8, flexDirection: 'row', alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 1,
   },
+  // Retiro automático por transferencia — fondo teal diferenciado
+  itemAutoTv: {
+    backgroundColor: Colors.tealLight,
+    borderWidth: 1.5,
+    borderColor: Colors.teal,
+  },
   itemFecha: { fontSize: 13, fontWeight: '800', color: Colors.dark },
   itemSub:   { fontSize: 11, color: Colors.gray, fontWeight: '700', marginTop: 1 },
   itemNota:  { fontSize: 11, color: '#92400e', fontWeight: '700', marginTop: 1 },
   itemNotaIng: { fontSize: 11, color: '#166534', fontWeight: '700', marginTop: 1 },
   itemNotaPres: { fontSize: 11, color: '#c2410c', fontWeight: '700', marginTop: 1 },
+  itemNotaAutoTv: { fontSize: 11, color: Colors.teal, fontWeight: '700', marginTop: 1 },
   itemValorRet: { fontSize: 16, fontWeight: '900', color: Colors.red },
   itemValorIng: { fontSize: 16, fontWeight: '900', color: Colors.green },
   itemValorPres: { fontSize: 16, fontWeight: '900', color: '#c2410c' },
