@@ -52,8 +52,8 @@ export default function HistorialScreen() {
           <Text style={estilos.detTitulo}>{titulo}</Text>
           {filas.map((f, i) => (
             <View key={i} style={estilos.detFila}>
-              <Text style={estilos.detNombre}>{f.nombre || '—'}</Text>
-              <Text style={estilos.detValor}>{fmt(f.valor || 0)}</Text>
+              <Text style={estilos.detNombre} numberOfLines={2}>{f.nombre || '—'}</Text>
+              <Text style={estilos.detValor} numberOfLines={1} adjustsFontSizeToFit>{fmt(f.valor || 0)}</Text>
             </View>
           ))}
         </View>
@@ -328,12 +328,12 @@ const estilos = StyleSheet.create({
   detalle: { backgroundColor: Colors.grayLight, padding: 12, borderTopWidth: 1, borderTopColor: Colors.border },
   detSeccion: { marginBottom: 10 },
   detTitulo: { fontSize: 12, fontWeight: '800', color: Colors.gray, marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 },
-  detFila: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  detNombre: { fontSize: 13, color: Colors.dark },
-  detValor: { fontSize: 13, fontWeight: '800' },
-  detTotalBox: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: Colors.greenLight, borderRadius: 9, padding: 9, marginBottom: 4 },
-  detTotalLabel: { fontSize: 14, fontWeight: '900', color: Colors.greenDark },
-  detTotalValor: { fontSize: 14, fontWeight: '900', color: Colors.greenDark },
+  detFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 8 },
+  detNombre: { fontSize: 13, color: Colors.dark, flex: 1, flexShrink: 1 },
+  detValor: { fontSize: 13, fontWeight: '800', flexShrink: 0, minWidth: 80, textAlign: 'right' },
+  detTotalBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.greenLight, borderRadius: 9, padding: 9, marginBottom: 4 },
+  detTotalLabel: { fontSize: 14, fontWeight: '900', color: Colors.greenDark, flex: 1 },
+  detTotalValor: { fontSize: 14, fontWeight: '900', color: Colors.greenDark, flexShrink: 0, textAlign: 'right' },
   btnEliminarDia: { backgroundColor: Colors.redLight, borderRadius: 8, padding: 10, alignItems: 'center', marginTop: 10 },
 
   // Pantalla vacía

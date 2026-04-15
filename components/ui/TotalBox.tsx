@@ -18,7 +18,7 @@ export function TotalBox({ label, valor, color }: TotalBoxProps) {
   return (
     <View style={[estilos.contenedor, { backgroundColor: color }]}>
       <Text style={estilos.label}>{label}</Text>
-      <Text style={estilos.valor}>{fmt(valor)}</Text>
+      <Text style={estilos.valor} numberOfLines={1} adjustsFontSizeToFit>{fmt(valor)}</Text>
     </View>
   );
 }
@@ -47,5 +47,7 @@ const estilos = StyleSheet.create({
     color: Colors.white,
     fontSize: 18,
     fontWeight: '900',
+    flexShrink: 1,
+    textAlign: 'right',
   },
 });

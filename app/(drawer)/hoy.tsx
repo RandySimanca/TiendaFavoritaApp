@@ -346,7 +346,7 @@ export default function HoyScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={estilos.factProv}>🏭 {f.proveedor}</Text>
                 <Text style={estilos.factResumen} numberOfLines={1}>{f.resumen}</Text>
-                <Text style={estilos.factValor}>{fmt(f.total)}</Text>
+                <Text style={estilos.factValor} numberOfLines={1} adjustsFontSizeToFit>{fmt(f.total)}</Text>
               </View>
               {esAdmin && (
                 <TouchableOpacity style={estilos.btnEliminar} onPress={() => eliminarFactura(f.id)}>
@@ -561,7 +561,7 @@ const estilos = StyleSheet.create({
   btnManualTexto: { color: Colors.gray, fontSize: 13, fontWeight: '800' },
   factProv: { fontSize: 13, fontWeight: '800', color: Colors.blueDark, marginBottom: 2 },
   factResumen: { fontSize: 11, color: '#475569', lineHeight: 14 },
-  factValor: { fontSize: 17, fontWeight: '900', color: Colors.blue, marginTop: 4 },
+  factValor: { fontSize: 16, fontWeight: '900', color: Colors.blue, marginTop: 4, flexShrink: 1 },
   notaCont: { backgroundColor: Colors.purpleLight, padding: 10, borderRadius: 10, marginBottom: 12 },
   notaContTeal: { backgroundColor: Colors.tealLight, padding: 10, borderRadius: 10, marginBottom: 12 },
   notaTexto: { fontSize: 12, color: Colors.purple, fontWeight: '700', fontStyle: 'italic' },
