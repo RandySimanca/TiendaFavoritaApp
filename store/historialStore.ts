@@ -181,8 +181,8 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
 
           set({ 
              historial: finalHist, 
-             retiros: finalRet.filter(r => r).sort((a, b) => (b.ts || 0) - (a.ts || 0)), 
-             ingresos: finalIng.filter(i => i).sort((a, b) => (b.ts || 0) - (a.ts || 0)) 
+             retiros: finalRet.filter(r => r).sort((a, b) => b.fecha.localeCompare(a.fecha) || (b.ts || 0) - (a.ts || 0)), 
+             ingresos: finalIng.filter(i => i).sort((a, b) => b.fecha.localeCompare(a.fecha) || (b.ts || 0) - (a.ts || 0)) 
           });
 
         } catch (e) {
@@ -233,7 +233,9 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
         await dbInsertIngreso(estado.fecha, estado.ingreso, estado.notaIngreso || '');
         supabase.from('ingresos').insert({
           fecha: estado.fecha, valor: estado.ingreso, nota: estado.notaIngreso || '', timestamp: Date.now()
-        }).then();
+        }).then(({ error }) => {
+          if (error) console.error('Error insertando INGRESO en Supabase:', error.message);
+        });
       }
 
       // ── Retiro automático por transferencias (Ventas + Pagos) ──────────────
@@ -251,7 +253,9 @@ export const useHistorialStore = create<HistorialStore>((set, get) => ({
         await dbInsertRetiro(estado.fecha, totalTransferencias, notaAutoTransferencia);
         supabase.from('retiros').insert({
           fecha: estado.fecha, valor: totalTransferencias, nota: notaAutoTransferencia, timestamp: Date.now()
-        }).then();
+        }).then(({ error }) => {
+          if (error) console.error('Error insertando RETIRO AUTO en Supabase:', error.message);
+        });
       }
       // ───────────────────────────────────────────────────────────────────────
       
