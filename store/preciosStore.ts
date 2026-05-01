@@ -6,11 +6,13 @@
 import { create } from 'zustand';
 import { PRECIOS_INICIALES } from '../data/preciosIniciales';
 import { 
-  dbGetPrecios, 
+  dbGetPrecios,
   dbInsertPrecio, 
   dbUpdatePrecio, 
   dbDeletePrecio, 
-  dbInsertPreciosBulk 
+  dbInsertPreciosBulk,
+  dbGetBorrador,
+  dbSetBorrador
 } from '../utils/database';
 import { supabase } from '../utils/supabase';
 
@@ -26,6 +28,7 @@ export interface Precio {
 
 interface PreciosStore {
   precios: Precio[];
+  valorInventario: number; // Valor manual del inventario total
   cargando: boolean;
 
   // Carga precios desde SQLite y sincroniza con Supabase
@@ -40,10 +43,13 @@ interface PreciosStore {
   actualizarDesdeFactura: (productos: any[], proveedor: string) => Promise<void>;
   // Suscribirse a cambios en tiempo real
   suscribirCambios: () => void;
+  // Guardar valor manual del inventario
+  setValorInventario: (monto: number) => Promise<void>;
 }
 
 export const usePreciosStore = create<PreciosStore>((set, get) => ({
   precios: [],
+  valorInventario: 0,
   cargando: true,
 
   cargar: async () => {
@@ -65,7 +71,11 @@ export const usePreciosStore = create<PreciosStore>((set, get) => ({
           data = await dbGetPrecios();
         }
       }
-      set({ precios: data, cargando: false });
+      
+      // Cargar valor de inventario manual
+      const vInv = await dbGetBorrador('valor_inventario');
+
+      set({ precios: data, valorInventario: vInv || 0, cargando: false });
 
       // 2. Sincronización en segundo plano (sin await para no bloquear la UI)
       (async () => {
@@ -220,5 +230,10 @@ export const usePreciosStore = create<PreciosStore>((set, get) => ({
         get().cargar(); // Recargar todo cuando haya un cambio de cualquier dispositivo
       })
       .subscribe();
+  },
+
+  setValorInventario: async (monto: number) => {
+    await dbSetBorrador('valor_inventario', monto);
+    set({ valorInventario: monto });
   }
 }));

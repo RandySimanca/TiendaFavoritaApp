@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator 
+  ActivityIndicator, TextInput
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,23 +11,27 @@ import { Colors } from '../../constants/Colors';
 import { useHistorialStore } from '../../store/historialStore';
 import { useMensualStore } from '../../store/mensualStore';
 import { useGastosStore } from '../../store/gastosStore';
-import { fmt, calcularDia, generarCierreMensual } from '../../utils/calcular';
-
-type Tab = 'RESULTADOS' | 'BALANCE';
+import { usePreciosStore } from '../../store/preciosStore';
+import { fmt, calcularDia, generarCierreMensual, formatInput, parseInput } from '../../utils/calcular';
 
 export default function ContabilidadScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
-  const [tab, setTab] = useState<Tab>('RESULTADOS');
+  const [tab, setTab] = useState<'RESULTADOS' | 'BALANCE' | 'AUDITORIA'>('RESULTADOS');
   const [mesSeleccionado, setMesSeleccionado] = useState<string>('');
 
   const { historial, retiros, ingresos, cargando: cHistorial } = useHistorialStore();
   const { cierres, cargar: cMensual, cargando: cCierres } = useMensualStore();
   const { gastos, cargar: cargarGastos, cargando: cGastos } = useGastosStore();
+  const { valorInventario, setValorInventario, cargar: cPrecios } = usePreciosStore();
+
+  const [editandoInv, setEditandoInv] = useState(false);
+  const [inpInventario, setInpInventario] = useState('');
 
   useEffect(() => {
     cMensual();
     cargarGastos();
-  }, [cMensual, cargarGastos]);
+    cPrecios();
+  }, [cMensual, cargarGastos, cPrecios]);
 
   // Determinar la lista de meses disponibles
   const mesesHistoricos = Array.from(new Set(historial.map((d: any) => d.fecha?.substring(0, 7)).filter(Boolean))).sort().reverse();
@@ -37,6 +41,10 @@ export default function ContabilidadScreen() {
       setMesSeleccionado(mesesHistoricos[0]);
     }
   }, [mesesHistoricos, mesSeleccionado]);
+
+  useEffect(() => {
+    setInpInventario(formatInput(valorInventario));
+  }, [valorInventario]);
 
   const cargando = cHistorial || cCierres || cGastos;
 
@@ -71,51 +79,84 @@ export default function ContabilidadScreen() {
 
   // ===== DATOS: BALANCE GENERAL =====
   const generarBalanceGeneral = () => {
-    // Activos:
-    // Efectivo actual = Es el 'cierre' del último día registrado en el historial (si hay)
     const efectivoEnCaja = historial.length > 0 ? historial[0].cierre || 0 : 0;
-    
-    // Prestamos a empleados acumulados
     const prestamosAcumulados = historial.reduce((acc, d) => acc + (d.prestamo || 0), 0);
+    const totalActivosLíquidos = efectivoEnCaja + prestamosAcumulados + valorInventario;
 
-    const totalActivosLíquidos = efectivoEnCaja + prestamosAcumulados;
-
-    // Pasivos = Para esta app, asumimos pasivos a corto plazo en $0
     const pasivosTotales = 0;
 
-    // Patrimonio (Capital):
-    // Utilidad Acumulada Histórica (Todos los meses/días)
-    const ventasHistoricas = historial.reduce((acc, d) => acc + calcularDia(d as any).total, 0);
-    const comprasHistoricas = historial.reduce((acc, d) => acc + calcularDia(d as any).compras, 0);
-    const gastosCajaHistoricos = historial.reduce((acc, d) => acc + calcularDia(d as any).totalGastos, 0);
+    const primerDia = historial.length > 0 ? [...historial].sort((a, b) => a.fecha.localeCompare(b.fecha))[0] : null;
+    const capitalInicial = primerDia?.base || 0;
+
+    const ventasHistoricas = historial.reduce((acc, d) => acc + (calcularDia(d as any).total || 0), 0);
+    const comprasHistoricas = historial.reduce((acc, d) => acc + (calcularDia(d as any).compras || 0), 0);
+    const gastosCajaHistoricos = historial.reduce((acc, d) => acc + (calcularDia(d as any).totalGastos || 0), 0);
     const gastosAdmonTotales = gastos.reduce((acc, g) => acc + (g.monto || 0), 0);
 
     const utilidadHistorica = ventasHistoricas - comprasHistoricas - gastosCajaHistoricos - gastosAdmonTotales;
-    
-    // Retiros dueños
     const retirosSocios = retiros.reduce((acc, r) => acc + (r.valor || 0), 0);
-    // Ingresos Extra (inversiones)
     const capitalAportado = ingresos.reduce((acc, i) => acc + (i.valor || 0), 0);
 
-    // Ecuacion contable: Patrimonio = Activos - Pasivos?
-    // En este caso, mostramos el capital con utilidades acumuladas
-    const patrimonio = (utilidadHistorica + capitalAportado) - retirosSocios;
+    const patrimonio = capitalInicial + utilidadHistorica + valorInventario + capitalAportado - retirosSocios;
 
     return {
       efectivoEnCaja,
       prestamosAcumulados,
+      valorInventario,
       totalActivosLíquidos,
       pasivosTotales,
+      capitalInicial,
+      primerFecha: primerDia?.fecha || '',
       utilidadHistorica,
       retirosSocios,
       capitalAportado,
       patrimonio,
-      // Descuadre si la caja no matchea el patrimonio de forma exacta.
       descuadre: totalActivosLíquidos - (patrimonio + pasivosTotales)
     };
   };
 
   const balance = generarBalanceGeneral();
+
+  // ===== DATOS: AUDITORÍA =====
+  const generarAuditoria = () => {
+    const logs: any[] = [];
+    const diasOrdenados = [...historial].sort((a, b) => a.fecha.localeCompare(b.fecha));
+    
+    let saldoAnterior = -1;
+
+    diasOrdenados.forEach((dia, i) => {
+      const calculo = calcularDia(dia as any);
+      
+      // 1. Detectar saltos de base (si la apertura de hoy no es lo que cerró ayer)
+      if (saldoAnterior !== -1 && Math.abs(dia.base - saldoAnterior) > 100) {
+        logs.push({
+          fecha: dia.fecha,
+          tipo: 'SALTO',
+          monto: dia.base - saldoAnterior,
+          nota: `Cerró con ${fmt(saldoAnterior)} pero abrió con ${fmt(dia.base)}`
+        });
+      }
+
+      // 2. Detectar descuadre diario (lo que reportó vs lo calculado)
+      const esperado = dia.base + (calculo.total - calculo.compras - calculo.totalGastos - (dia.prestamo || 0));
+      const diferencia = (dia.cierre || 0) - esperado;
+      
+      if (Math.abs(diferencia) > 100) {
+        logs.push({
+          fecha: dia.fecha,
+          tipo: 'ERROR_CIERRE',
+          monto: diferencia,
+          nota: `Esperado ${fmt(esperado)}, Reportado ${fmt(dia.cierre || 0)}`
+        });
+      }
+
+      saldoAnterior = dia.cierre || 0;
+    });
+
+    return logs.sort((a, b) => Math.abs(b.monto) - Math.abs(a.monto)).slice(0, 20); // Top 20 errores mas grandes
+  };
+
+  const auditoria = generarAuditoria();
 
   if (cargando) {
     return (
@@ -134,27 +175,29 @@ export default function ContabilidadScreen() {
           </TouchableOpacity>
           <View>
             <Text style={styles.headerTitle}>Contabilidad</Text>
-            <Text style={styles.headerSubtitle}>Superficie Financiera de tu Negocio</Text>
+            <Text style={styles.headerSubtitle}>Control y Auditoría de tu Negocio</Text>
           </View>
         </View>
 
-        {/* Custom Segmented Control */}
+        {/* Segmented Control with 3 options */}
         <View style={styles.segmentContainer}>
           <TouchableOpacity 
             style={[styles.segmentBtn, tab === 'RESULTADOS' && styles.segmentBtnActive]}
             onPress={() => setTab('RESULTADOS')}
           >
-            <Text style={[styles.segmentText, tab === 'RESULTADOS' && styles.segmentTextActive]}>
-              Pérdidas y Ganancias
-            </Text>
+            <Text style={[styles.segmentText, tab === 'RESULTADOS' && styles.segmentTextActive]}>P&G</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.segmentBtn, tab === 'BALANCE' && styles.segmentBtnActive]}
             onPress={() => setTab('BALANCE')}
           >
-            <Text style={[styles.segmentText, tab === 'BALANCE' && styles.segmentTextActive]}>
-              Balance General
-            </Text>
+            <Text style={[styles.segmentText, tab === 'BALANCE' && styles.segmentTextActive]}>Balance</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.segmentBtn, tab === 'AUDITORIA' && styles.segmentBtnActive]}
+            onPress={() => setTab('AUDITORIA')}
+          >
+            <Text style={[styles.segmentText, tab === 'AUDITORIA' && styles.segmentTextActive]}>Auditoría</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -163,7 +206,6 @@ export default function ContabilidadScreen() {
 
         {tab === 'RESULTADOS' && (
           <View style={styles.tabContent}>
-            {/* Combo meses */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monthScroll} contentContainerStyle={{ paddingHorizontal: 20 }}>
               {mesesHistoricos.map(m => (
                 <TouchableOpacity 
@@ -171,9 +213,7 @@ export default function ContabilidadScreen() {
                   style={[styles.monthChip, mesSeleccionado === m && styles.monthChipActive]}
                   onPress={() => setMesSeleccionado(m)}
                 >
-                  <Text style={[styles.monthChipText, mesSeleccionado === m && styles.monthChipTextActive]}>
-                    {m}
-                  </Text>
+                  <Text style={[styles.monthChipText, mesSeleccionado === m && styles.monthChipTextActive]}>{m}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -183,44 +223,18 @@ export default function ContabilidadScreen() {
                 <MaterialCommunityIcons name="movie-roll" size={24} color={Colors.blue} />
                 <Text style={styles.cardTitle}>Estado de Resultados ({mesSeleccionado || 'N/A'})</Text>
               </View>
-              <Text style={styles.cardDesc}>
-                Conocido como P&G (Pérdidas y Ganancias). Muestra la película de la rentabilidad durante este periodo.
-              </Text>
-
               {resultados ? (
                 <View style={styles.reportContainer}>
-                  <View style={styles.row}>
-                    <Text style={styles.rowLabel}>Ingresos (Ventas)</Text>
-                    <Text style={styles.rowValuePos}>{fmt(resultados.ventas)}</Text>
-                  </View>
-                  <View style={styles.row}>
-                    <Text style={styles.rowLabel}>(-) Costo de Ventas (Compras)</Text>
-                    <Text style={styles.rowValueNeg}>{fmt(resultados.costos)}</Text>
-                  </View>
-                  
+                  <View style={styles.row}><Text style={styles.rowLabel}>Ingresos (Ventas)</Text><Text style={styles.rowValuePos}>{fmt(resultados.ventas)}</Text></View>
+                  <View style={styles.row}><Text style={styles.rowLabel}>(-) Costo (Compras)</Text><Text style={styles.rowValueNeg}>{fmt(resultados.costos)}</Text></View>
                   <View style={styles.dividerBold} />
-                  
-                  <View style={styles.row}>
-                    <Text style={styles.rowLabelBold}>Utilidad Bruta</Text>
-                    <Text style={styles.rowValueBold}>{fmt(resultados.utilidadBruta)}</Text>
-                  </View>
-
-                  <View style={styles.row}>
-                    <Text style={styles.rowLabel}>(-) Gastos Operacionales</Text>
-                    <Text style={styles.rowValueNeg}>{fmt(resultados.gastosOperativos)}</Text>
-                  </View>
-
+                  <View style={styles.row}><Text style={styles.rowLabelBold}>Utilidad Bruta</Text><Text style={styles.rowValueBold}>{fmt(resultados.utilidadBruta)}</Text></View>
+                  <View style={styles.row}><Text style={styles.rowLabel}>(-) Gastos Operacionales</Text><Text style={styles.rowValueNeg}>{fmt(resultados.gastosOperativos)}</Text></View>
                   <View style={styles.dividerBold} />
-
-                  <View style={styles.rowPrimary}>
-                    <Text style={styles.rowPrimaryLabel}>UTILIDAD NETA</Text>
-                    <Text style={styles.rowPrimaryValue}>{fmt(resultados.utilidadNeta)}</Text>
-                  </View>
+                  <View style={styles.rowPrimary}><Text style={styles.rowPrimaryLabel}>UTILIDAD NETA</Text><Text style={styles.rowPrimaryValue}>{fmt(resultados.utilidadNeta)}</Text></View>
                 </View>
               ) : (
-                <Text style={{ textAlign: 'center', color: Colors.gray, marginTop: 20 }}>
-                  No hay datos para el mes seleccionado.
-                </Text>
+                <Text style={styles.emptyText}>No hay datos para este mes.</Text>
               )}
             </View>
           </View>
@@ -233,77 +247,76 @@ export default function ContabilidadScreen() {
                 <MaterialCommunityIcons name="camera" size={24} color={Colors.orange} />
                 <Text style={styles.cardTitle}>Balance General Actual</Text>
               </View>
-              <Text style={styles.cardDesc}>
-                La foto actual del negocio. Lo que la empresa tiene (Activos), debe (Pasivos) y le pertenece (Patrimonio).
-              </Text>
-
-              <View style={styles.alertBox}>
-                <MaterialCommunityIcons name="information" size={16} color="#0369a1" />
-                <Text style={styles.alertText}>
-                  Inventario no incluido: Esta app lleva contabilidad de caja, el valor de la mercancía en estantería no se suma actualmente a los activos.
-                </Text>
-              </View>
-
               <View style={styles.reportContainer}>
-                
-                {/* ACTIVOS */}
-                <Text style={styles.sectionHeader}>ACTIVOS (Lo que se tiene)</Text>
+                <Text style={styles.sectionHeader}>ACTIVOS (Lo que tienes)</Text>
+                <View style={styles.row}><Text style={styles.rowLabel}>Efectivo en Caja</Text><Text style={styles.rowValue}>{fmt(balance.efectivoEnCaja)}</Text></View>
+                <View style={styles.row}><Text style={styles.rowLabel}>Préstamos (Cobrar)</Text><Text style={styles.rowValue}>{fmt(balance.prestamosAcumulados)}</Text></View>
                 <View style={styles.row}>
-                  <Text style={styles.rowLabel}>Efectivo en Caja (Últ. Cierre)</Text>
-                  <Text style={styles.rowValue}>{fmt(balance.efectivoEnCaja)}</Text>
-                </View>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabel}>Préstamos Empleados (Por cobrar)</Text>
-                  <Text style={styles.rowValue}>{fmt(balance.prestamosAcumulados)}</Text>
+                  <Text style={styles.rowLabel}>Inventario (Mercancía)</Text>
+                  {editandoInv ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <TextInput style={styles.invInput} value={inpInventario} onChangeText={t => setInpInventario(formatInput(t))} keyboardType="numeric" autoFocus />
+                      <TouchableOpacity onPress={() => { setValorInventario(parseInput(inpInventario)); setEditandoInv(false); }}>
+                        <MaterialCommunityIcons name="check-circle" size={24} color={Colors.green} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }} onPress={() => setEditandoInv(true)}>
+                      <Text style={[styles.rowValue, { color: Colors.blue }]}>{fmt(balance.valorInventario)}</Text>
+                      <MaterialCommunityIcons name="pencil" size={14} color={Colors.blue} />
+                    </TouchableOpacity>
+                  )}
                 </View>
                 <View style={styles.dividerBold} />
-                <View style={styles.row}>
-                  <Text style={styles.rowLabelBold}>TOTAL ACTIVOS LÍQUIDOS</Text>
-                  <Text style={styles.rowValueBold}>{fmt(balance.totalActivosLíquidos)}</Text>
-                </View>
+                <View style={styles.row}><Text style={styles.rowLabelBold}>TOTAL ACTIVOS</Text><Text style={styles.rowValueBold}>{fmt(balance.totalActivosLíquidos)}</Text></View>
 
-                {/* PASIVOS */}
-                <Text style={[styles.sectionHeader, { marginTop: 20 }]}>PASIVOS (Lo que se debe)</Text>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabel}>Cuentas por Pagar Proveedores</Text>
-                  <Text style={styles.rowValue}>{fmt(balance.pasivosTotales)}</Text>
-                </View>
+                <Text style={[styles.sectionHeader, { marginTop: 20 }]}>PATRIMONIO (Tu riqueza)</Text>
+                <View style={styles.row}><Text style={styles.rowLabel}>Capital Inicial</Text><Text style={styles.rowValuePos}>{fmt(balance.capitalInicial)}</Text></View>
+                <View style={styles.row}><Text style={styles.rowLabel}>Utilidad Acumulada</Text><Text style={styles.rowValuePos}>{fmt(balance.utilidadHistorica + balance.valorInventario)}</Text></View>
+                <View style={styles.row}><Text style={styles.rowLabel}>(-) Retiros Totales</Text><Text style={styles.rowValueNeg}>{fmt(balance.retirosSocios)}</Text></View>
                 <View style={styles.dividerBold} />
-                <View style={styles.row}>
-                  <Text style={styles.rowLabelBold}>TOTAL PASIVOS</Text>
-                  <Text style={styles.rowValueBold}>{fmt(balance.pasivosTotales)}</Text>
-                </View>
-
-                {/* PATRIMONIO */}
-                <Text style={[styles.sectionHeader, { marginTop: 20 }]}>PATRIMONIO (Lo de los dueños)</Text>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabel}>Capital / Ingresos Aportados</Text>
-                  <Text style={styles.rowValuePos}>{fmt(balance.capitalAportado)}</Text>
-                </View>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabel}>Utilidad Acumulada Histórica</Text>
-                  <Text style={styles.rowValuePos}>{fmt(balance.utilidadHistorica)}</Text>
-                </View>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabel}>(-) Retiros Realizados</Text>
-                  <Text style={styles.rowValueNeg}>{fmt(balance.retirosSocios)}</Text>
-                </View>
-                <View style={styles.dividerBold} />
-                <View style={styles.rowPrimary}>
-                  <Text style={styles.rowPrimaryLabel}>TOTAL PATRIMONIO</Text>
-                  <Text style={styles.rowPrimaryValue}>{fmt(balance.patrimonio)}</Text>
-                </View>
+                <View style={styles.rowPrimary}><Text style={styles.rowPrimaryLabel}>TOTAL PATRIMONIO</Text><Text style={styles.rowPrimaryValue}>{fmt(balance.patrimonio)}</Text></View>
 
                 {Math.abs(balance.descuadre) > 1000 && (
-                  <View style={[styles.alertBox, { backgroundColor: '#fef2f2', borderColor: '#fecaca', marginTop: 15 }]}>
+                  <View style={styles.descuadreBox}>
                     <MaterialCommunityIcons name="alert" size={16} color="#dc2626" />
-                    <Text style={[styles.alertText, { color: '#dc2626' }]}>
-                      Nota: Hay un descuadre histórico acumulado de {fmt(balance.descuadre)} debido a cuadres de caja imperfectos, errores u omisiones en días pasados.
-                    </Text>
+                    <Text style={styles.descuadreText}>Descuadre Histórico: {fmt(balance.descuadre)}</Text>
                   </View>
                 )}
               </View>
+            </View>
+          </View>
+        )}
 
+        {tab === 'AUDITORIA' && (
+          <View style={styles.tabContent}>
+            <View style={[styles.card, { marginTop: 20 }]}>
+              <View style={styles.cardHeader}>
+                <MaterialCommunityIcons name="magnify-expand" size={24} color={Colors.red} />
+                <Text style={styles.cardTitle}>Auditoría de Errores</Text>
+              </View>
+              <Text style={styles.cardDesc}>
+                Aquí puedes ver exactamente qué días el dinero no cuadró. Los errores negativos indican que &quot;faltó&quot; dinero respecto a las ventas.
+              </Text>
+
+              {auditoria.length > 0 ? (
+                auditoria.map((log, i) => (
+                  <View key={i} style={styles.auditLog}>
+                    <View style={styles.auditRow}>
+                      <Text style={styles.auditDate}>{log.fecha}</Text>
+                      <Text style={[styles.auditMonto, { color: log.monto > 0 ? Colors.green : Colors.orange }]}>
+                        {log.monto > 0 ? '+' : ''}{fmt(log.monto)}
+                      </Text>
+                    </View>
+                    <Text style={styles.auditNote}>{log.nota}</Text>
+                    <View style={styles.auditBadge}>
+                      <Text style={styles.auditBadgeText}>{log.tipo === 'SALTO' ? 'SALTO DE BASE' : 'DESCUADRE CIERRE'}</Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>¡Felicidades! No se han detectado inconsistencias importantes en el historial.</Text>
+              )}
             </View>
           </View>
         )}
@@ -318,65 +331,43 @@ const styles = StyleSheet.create({
   header: { padding: 20, paddingTop: 60, paddingBottom: 20 },
   headerTitle: { color: Colors.white, fontSize: 24, fontWeight: '900' },
   headerSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 4 },
-  
-  segmentContainer: { 
-    flexDirection: 'row', 
-    backgroundColor: 'rgba(0,0,0,0.2)', 
-    borderRadius: 12, 
-    padding: 4,
-    marginTop: 20
-  },
+  segmentContainer: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 4, marginTop: 20 },
   segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  segmentBtnActive: { backgroundColor: Colors.white, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
+  segmentBtnActive: { backgroundColor: Colors.white, elevation: 3 },
   segmentText: { color: 'rgba(255,255,255,0.8)', fontWeight: '700', fontSize: 14 },
   segmentTextActive: { color: Colors.green, fontWeight: '900' },
-
   tabContent: { flex: 1 },
-  
   monthScroll: { marginVertical: 15, maxHeight: 40 },
-  monthChip: { 
-    paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, 
-    backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', 
-    marginRight: 10, justifyContent: 'center', alignItems: 'center' 
-  },
+  monthChip: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', marginRight: 10 },
   monthChipActive: { backgroundColor: Colors.green, borderColor: Colors.green },
   monthChipText: { color: Colors.gray, fontWeight: '700' },
   monthChipTextActive: { color: Colors.white, fontWeight: '900' },
-
-  card: {
-    backgroundColor: Colors.white, borderRadius: 20, marginHorizontal: 16,
-    padding: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  card: { backgroundColor: Colors.white, borderRadius: 20, marginHorizontal: 16, padding: 20, elevation: 2 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
   cardTitle: { fontSize: 18, fontWeight: '900', color: Colors.dark },
   cardDesc: { fontSize: 13, color: Colors.gray, marginBottom: 20, lineHeight: 18 },
-
-  alertBox: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#f0f9ff', padding: 12, borderRadius: 12,
-    borderWidth: 1, borderColor: '#bae6fd', marginBottom: 20
-  },
-  alertText: { flex: 1, fontSize: 12, color: '#0369a1', fontWeight: '500', lineHeight: 18 },
-
   reportContainer: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 16 },
-  sectionHeader: { fontSize: 12, fontWeight: '800', color: Colors.gray, marginBottom: 10, letterSpacing: 0.5 },
-  
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
+  sectionHeader: { fontSize: 11, fontWeight: '800', color: Colors.gray, marginBottom: 8 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
   rowLabel: { fontSize: 14, color: Colors.dark },
   rowValue: { fontSize: 14, color: Colors.dark, fontWeight: '600' },
   rowValuePos: { fontSize: 14, color: Colors.green, fontWeight: '700' },
   rowValueNeg: { fontSize: 14, color: Colors.orange, fontWeight: '700' },
-  
-  rowLabelBold: { fontSize: 15, color: Colors.dark, fontWeight: '800' },
-  rowValueBold: { fontSize: 15, color: Colors.dark, fontWeight: '900' },
-
-  dividerBold: { height: 2, backgroundColor: '#cbd5e1', marginVertical: 10 },
-
-  rowPrimary: { 
-    flexDirection: 'row', justifyContent: 'space-between', 
-    backgroundColor: '#ecfdf5', padding: 15, borderRadius: 12, marginTop: 5,
-    borderWidth: 1, borderColor: '#a7f3d0'
-  },
-  rowPrimaryLabel: { fontSize: 15, color: '#065f46', fontWeight: '900' },
-  rowPrimaryValue: { fontSize: 18, color: '#065f46', fontWeight: '900' },
+  rowLabelBold: { fontSize: 15, fontWeight: '800' },
+  rowValueBold: { fontSize: 15, fontWeight: '900' },
+  dividerBold: { height: 1, backgroundColor: '#cbd5e1', marginVertical: 8 },
+  rowPrimary: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#ecfdf5', padding: 12, borderRadius: 10, marginTop: 5, borderWidth: 1, borderColor: '#a7f3d0' },
+  rowPrimaryLabel: { fontSize: 14, color: '#065f46', fontWeight: '900' },
+  rowPrimaryValue: { fontSize: 16, color: '#065f46', fontWeight: '900' },
+  emptyText: { textAlign: 'center', color: Colors.gray, marginTop: 20, fontSize: 13 },
+  descuadreBox: { flexDirection: 'row', gap: 8, backgroundColor: '#fef2f2', padding: 10, borderRadius: 8, marginTop: 15 },
+  descuadreText: { color: '#dc2626', fontSize: 12, fontWeight: '700' },
+  auditLog: { backgroundColor: '#fff', borderLeftWidth: 4, borderLeftColor: Colors.red, padding: 12, borderRadius: 8, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  auditRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  auditDate: { fontWeight: '800', color: Colors.dark, fontSize: 14 },
+  auditMonto: { fontWeight: '900', fontSize: 15 },
+  auditNote: { fontSize: 12, color: Colors.gray, marginTop: 4 },
+  auditBadge: { alignSelf: 'flex-start', backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginTop: 6 },
+  auditBadgeText: { fontSize: 9, fontWeight: '800', color: Colors.gray },
+  invInput: { backgroundColor: '#fff', borderWidth: 1, borderColor: Colors.gray, borderRadius: 8, paddingHorizontal: 10, fontSize: 14, width: 100, textAlign: 'right' }
 });
