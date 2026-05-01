@@ -127,6 +127,17 @@ export default function DrawerLayout() {
           drawerItemStyle: esAdmin ? undefined : { display: 'none' },
         }}
       />
+      <Drawer.Screen
+        name="contabilidad"
+        options={{
+          drawerLabel: 'Contabilidad',
+          title: '⚖️ Contabilidad',
+          drawerIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="finance" size={size} color={color} />
+          ),
+          drawerItemStyle: esAdmin ? undefined : { display: 'none' },
+        }}
+      />
     </Drawer>
   );
 }
