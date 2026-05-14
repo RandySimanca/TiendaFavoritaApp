@@ -1,19 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  TextInput, Alert, ActivityIndicator, FlatList,
-  KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback
+  TextInput, Alert, FlatList,
+  KeyboardAvoidingView, Platform, Keyboard
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useGastosStore } from '../../store/gastosStore';
+import { useHistorialStore } from '../../store/historialStore';
+import { useDiaStore } from '../../store/diaStore';
 import { fmt, parseInput, formatInput } from '../../utils/calcular';
 import { Colors } from '../../constants/Colors';
 
 const CATEGORIAS = [
-  {/*{ id: 'arriendo', nombre: 'Arriendo', icon: 'home-city' },*/},
+  { id: 'arriendo', nombre: 'Arriendo', icon: 'home-city' },
   { id: 'luz', nombre: 'Servicio de Luz', icon: 'lightning-bolt' },
   { id: 'agua', nombre: 'Servicio de Agua', icon: 'water' },
   { id: 'nomina', nombre: 'Nómina/Pagos', icon: 'account-cash' },
@@ -30,7 +32,7 @@ const GASTOS_COMUNES = [
 
 export default function GastosScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
-  const { gastos, gastosRecurrentes, cargando, cargar, cargarRecurrentes, guardarRecurrentes, agregarGasto, eliminarGasto } = useGastosStore();
+  const { gastos, gastosRecurrentes, cargar, cargarRecurrentes, guardarRecurrentes, agregarGasto, eliminarGasto } = useGastosStore();
   
   const [mesFiltro, setMesFiltro] = useState(new Date().toISOString().slice(0, 7));
   const [modalVisible, setModalVisible] = useState(false);
@@ -59,7 +61,7 @@ export default function GastosScreen() {
       await cargarRecurrentes();
     };
     init();
-  }, [mesFiltro]);
+  }, [mesFiltro, cargar, cargarRecurrentes]);
 
   const cambiarMes = (k: number) => {
     // Usamos el día 15 para estar seguros y evitar problemas de huso horario al sumar/restar meses
@@ -86,8 +88,6 @@ export default function GastosScreen() {
 
     if (fuente === 'Caja') {
       const hoyStr = new Date().toISOString().slice(0, 10);
-      const { useHistorialStore } = require('../../store/historialStore');
-      const { useDiaStore } = require('../../store/diaStore');
       
       await useHistorialStore.getState().inyectarGastoOperacional({ 
         nombre: `[Admin] ${concepto}`, 
@@ -158,8 +158,6 @@ export default function GastosScreen() {
     });
 
     if (r.fuente === 'Caja') {
-      const { useHistorialStore } = require('../../store/historialStore');
-      const { useDiaStore } = require('../../store/diaStore');
       const targetDateStr = paymentDate.toISOString().slice(0, 10);
       
       await useHistorialStore.getState().inyectarGastoOperacional({ 
@@ -493,4 +491,3 @@ const styles = StyleSheet.create({
   pillGastoActivo: { backgroundColor: Colors.green, borderColor: Colors.green },
   pillGastoTxt: { fontSize: 13, fontWeight: '700', color: Colors.gray },
 });
-

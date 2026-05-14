@@ -14,6 +14,14 @@ import { useGastosStore } from '../../store/gastosStore';
 import { usePreciosStore } from '../../store/preciosStore';
 import { fmt, calcularDia, generarCierreMensual, formatInput, parseInput } from '../../utils/calcular';
 
+const NOTA_AUTO_UNIFICADA = '📲 Transferencias (Ventas + Pagos) — dinero al cel/banco, no a caja';
+const NOTA_AUTO_TV = '📲 Ventas por transferencia — dinero al cel/banco, no a caja';
+const NOTA_AUTO_TP = '📲 Pagos de deuda (transferencia) — dinero al cel/banco, no a caja';
+
+function esRetiroAutoTransferencia(nota?: string) {
+  return nota === NOTA_AUTO_UNIFICADA || nota === NOTA_AUTO_TV || nota === NOTA_AUTO_TP;
+}
+
 export default function ContabilidadScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
   const [tab, setTab] = useState<'RESULTADOS' | 'BALANCE' | 'AUDITORIA'>('RESULTADOS');
@@ -117,6 +125,13 @@ export default function ContabilidadScreen() {
 
   const balance = generarBalanceGeneral();
 
+  // ===== DATOS: RECUPERACIÓN DE CAPITAL =====
+  const inversionTotal = (balance.capitalInicial || 0) + (balance.capitalAportado || 0);
+  const retirosReales = retiros.filter(r => !esRetiroAutoTransferencia(r.nota)).reduce((acc, r) => acc + (r.valor || 0), 0);
+  const capitalPendiente = inversionTotal - retirosReales;
+  const recuperado = capitalPendiente <= 0;
+  const porcentajeRecuperado = inversionTotal > 0 ? Math.min(100, (retirosReales / inversionTotal) * 100) : 0;
+
   // ===== DATOS: AUDITORÍA =====
   const generarAuditoria = () => {
     const logs: any[] = [];
@@ -125,9 +140,8 @@ export default function ContabilidadScreen() {
     let saldoAnterior = -1;
 
     diasOrdenados.forEach((dia, i) => {
-      const calculo = calcularDia(dia as any);
-      
       // 1. Detectar saltos de base (si la apertura de hoy no es lo que cerró ayer)
+      // Este es el único lugar donde se generan descuadres reales en este modelo contable
       if (saldoAnterior !== -1 && Math.abs(dia.base - saldoAnterior) > 100) {
         logs.push({
           fecha: dia.fecha,
@@ -137,23 +151,10 @@ export default function ContabilidadScreen() {
         });
       }
 
-      // 2. Detectar descuadre diario (lo que reportó vs lo calculado)
-      const esperado = dia.base + (calculo.total - calculo.compras - calculo.totalGastos - (dia.prestamo || 0));
-      const diferencia = (dia.cierre || 0) - esperado;
-      
-      if (Math.abs(diferencia) > 100) {
-        logs.push({
-          fecha: dia.fecha,
-          tipo: 'ERROR_CIERRE',
-          monto: diferencia,
-          nota: `Esperado ${fmt(esperado)}, Reportado ${fmt(dia.cierre || 0)}`
-        });
-      }
-
       saldoAnterior = dia.cierre || 0;
     });
 
-    return logs.sort((a, b) => Math.abs(b.monto) - Math.abs(a.monto)).slice(0, 20); // Top 20 errores mas grandes
+    return logs.sort((a, b) => b.fecha.localeCompare(a.fecha)); // Orden cronológico inverso
   };
 
   const auditoria = generarAuditoria();
@@ -217,6 +218,50 @@ export default function ContabilidadScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+
+            {/* Nueva Tarjeta: Recuperación de Capital */}
+            <View style={[styles.card, { marginBottom: 20 }]}>
+              <View style={styles.cardHeader}>
+                <MaterialCommunityIcons 
+                  name={recuperado ? "trophy-outline" : "finance"} 
+                  size={24} 
+                  color={recuperado ? Colors.green : Colors.gold} 
+                />
+                <Text style={styles.cardTitle}>Recuperación de Capital</Text>
+              </View>
+              <View style={styles.reportContainer}>
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>Inversión Inicial + Aportes</Text>
+                  <Text style={styles.rowValue}>{fmt(inversionTotal)}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>(-) Retiros de Dueño (Recuperado)</Text>
+                  <Text style={styles.rowValuePos}>{fmt(retirosReales)}</Text>
+                </View>
+                <View style={styles.dividerBold} />
+                
+                <View style={capitalPendiente > 0 ? styles.rowPending : styles.rowSuccess}>
+                  <Text style={styles.rowLabelBold}>
+                    {capitalPendiente > 0 ? 'Saldo por Recuperar' : 'Excedente (Ganancia Real)'}
+                  </Text>
+                  <Text style={styles.rowValueBold}>{fmt(Math.abs(capitalPendiente))}</Text>
+                </View>
+
+                {/* Barra de progreso */}
+                <View style={styles.progressBg}>
+                  <LinearGradient 
+                    colors={recuperado ? [Colors.green, '#22c55e'] : [Colors.gold, '#f59e0b']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={[styles.progressBar, { width: `${porcentajeRecuperado}%` }]}
+                  />
+                </View>
+                <Text style={styles.progressText}>
+                  {recuperado 
+                    ? '¡Felicidades! Has recuperado tu inversión inicial y el negocio está dando ganancias reales.'
+                    : `Has recuperado el ${porcentajeRecuperado.toFixed(1)}% de tu inversión inicial.`}
+                </Text>
+              </View>
+            </View>
 
             <View style={styles.card}>
               <View style={styles.cardHeader}>
@@ -369,5 +414,10 @@ const styles = StyleSheet.create({
   auditNote: { fontSize: 12, color: Colors.gray, marginTop: 4 },
   auditBadge: { alignSelf: 'flex-start', backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginTop: 6 },
   auditBadgeText: { fontSize: 9, fontWeight: '800', color: Colors.gray },
-  invInput: { backgroundColor: '#fff', borderWidth: 1, borderColor: Colors.gray, borderRadius: 8, paddingHorizontal: 10, fontSize: 14, width: 100, textAlign: 'right' }
+  invInput: { backgroundColor: '#fff', borderWidth: 1, borderColor: Colors.gray, borderRadius: 8, paddingHorizontal: 10, fontSize: 14, width: 100, textAlign: 'right' },
+  rowPending: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#fff7ed', padding: 10, borderRadius: 8, marginTop: 5, borderWidth: 1, borderColor: '#ffedd5' },
+  rowSuccess: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#f0fdf4', padding: 10, borderRadius: 8, marginTop: 5, borderWidth: 1, borderColor: '#dcfce7' },
+  progressBg: { height: 10, backgroundColor: '#e2e8f0', borderRadius: 5, marginTop: 15, overflow: 'hidden' },
+  progressBar: { height: '100%', borderRadius: 5 },
+  progressText: { fontSize: 12, color: Colors.gray, marginTop: 8, textAlign: 'center', fontWeight: '600' }
 });
