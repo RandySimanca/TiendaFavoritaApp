@@ -47,8 +47,11 @@ export default function HoyScreen() {
   const [showPicker, setShowPicker] = useState(false);
 
   useEffect(() => {
+    if (fechaParam) {
+      setFecha(fechaParam as string);
+    }
     cargarDiaActual(fechaParam as string);
-  }, [fechaParam, cargarDiaActual]);
+  }, [fechaParam, cargarDiaActual, setFecha]);
 
   useEffect(() => {
     const res = calcularDia(useDiaStore.getState());
@@ -288,6 +291,7 @@ export default function HoyScreen() {
               onChangeText={v => setBase(parseInput(v))} 
               keyboardType="numeric" 
               textAlign="right" 
+              placeholder="0"
             />
           </View>
           {esAdmin && (
@@ -301,6 +305,7 @@ export default function HoyScreen() {
                   onChangeText={v => setIngreso(parseInput(v))} 
                   keyboardType="numeric" 
                   textAlign="right" 
+                  placeholder="0"
                 />
               </View>
               <TextInput 
@@ -448,6 +453,7 @@ export default function HoyScreen() {
               onChangeText={v => setCierre(parseInput(v))} 
               keyboardType="numeric" 
               textAlign="right" 
+              placeholder="0"
             />
           </View>
           {esAdmin && (
@@ -461,6 +467,7 @@ export default function HoyScreen() {
                   onChangeText={v => setRetiro(parseInput(v))} 
                   keyboardType="numeric" 
                   textAlign="right" 
+                  placeholder="0"
                 />
               </View>
               <TextInput 
@@ -522,13 +529,35 @@ const estilos = StyleSheet.create({
   inputGroup: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 9 },
   inputLabel: { flex: 1, fontSize: 13, fontWeight: '700', color: Colors.gray },
   prefijo: { fontWeight: '900', fontSize: 15, color: '#94a3b8' },
-  inputNumerico: { width: 145, borderWidth: 2, borderColor: Colors.border, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 11, fontSize: 16, fontWeight: '800', textAlign: 'right', color: Colors.dark, backgroundColor: Colors.grayLight },
+  inputNumerico: { 
+    width: 145, 
+    borderWidth: 2, 
+    borderColor: Colors.border, 
+    borderRadius: 10, 
+    paddingVertical: 10, 
+    paddingHorizontal: 11, 
+    fontSize: 18, 
+    fontWeight: '900', 
+    textAlign: 'right', 
+    color: '#000000', 
+    backgroundColor: '#ffffff' 
+  },
   facturaItem: { flexDirection: 'row', gap: 9, backgroundColor: Colors.blueLight, borderWidth: 1.5, borderColor: '#bfdbfe', borderRadius: 12, padding: 10, marginBottom: 8, alignItems: 'flex-start' },
   btnEliminar: { backgroundColor: Colors.redLight, borderRadius: 8, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   btnAgregar: { width: '100%', paddingVertical: 9, borderRadius: 10, borderWidth: 2, borderStyle: 'dashed', backgroundColor: 'transparent', alignItems: 'center', marginTop: 3 },
   btnAgregarTexto: { fontSize: 13, fontWeight: '800' },
   totalBox: { borderRadius: 11, padding: 11, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
-  inputNotaRetiro: { borderWidth: 1.5, borderColor: Colors.border, borderRadius: 10, padding: 10, fontSize: 13, fontWeight: '700', color: Colors.dark, backgroundColor: Colors.grayLight, marginBottom: 8 },
+  inputNotaRetiro: { 
+    borderWidth: 1.5, 
+    borderColor: Colors.border, 
+    borderRadius: 10, 
+    padding: 10, 
+    fontSize: 13, 
+    fontWeight: '700', 
+    color: '#000000', 
+    backgroundColor: '#ffffff', 
+    marginBottom: 8 
+  },
   accionBtns: { flexDirection: 'row', gap: 8, marginBottom: 11 },
   btnGuardar: { flex: 1, backgroundColor: Colors.green, borderRadius: 13, padding: 13, alignItems: 'center', elevation: 3 },
   btnGuardarTexto: { color: Colors.white, fontSize: 14, fontWeight: '800' },

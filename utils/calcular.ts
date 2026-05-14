@@ -58,9 +58,8 @@ export function fmt(n: number): string {
 
 // Formatea un número como string con puntos de miles para INPUTS: 10000 -> "10.000"
 export function formatInput(n: number | string): string {
-  if (n === '' || n === undefined || n === null) return '';
+  if (n === '' || n === undefined || n === null || n === 0 || n === '0') return '';
   const val = typeof n === 'number' ? n : parseFloat(String(n).replace(/\./g, '')) || 0;
-  if (val === 0) return '0';
   return Math.round(val).toLocaleString('es-CO');
 }
 

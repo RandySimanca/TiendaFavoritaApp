@@ -168,6 +168,7 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
 
   cargarDiaActual: async (fechaManual?: string) => {
     const f = fechaManual || get().fecha;
+    if (fechaManual) set({ fecha: f });
     const clave = `borrador_${f}`;
     try {
       set({ cargando: true });
@@ -180,8 +181,15 @@ export const useDiaStore = create<DiaStore>((set, get) => ({
         return;
       }
       
-      // 2. Si no hay borrador, buscar en Historial Real (Día cerrado) unificado con la nube
-      const historialMemoria = useHistorialStore.getState().historial;
+      // 2. Si no hay borrador, buscar en Historial Real (Día cerrado)
+      let historialMemoria = useHistorialStore.getState().historial;
+      
+      // Si la memoria está vacía, intentamos cargarla de la DB
+      if (historialMemoria.length === 0) {
+        await useHistorialStore.getState().cargar();
+        historialMemoria = useHistorialStore.getState().historial;
+      }
+
       const guardadoEnMemoria = historialMemoria.find(h => h.fecha === f);
 
       if (guardadoEnMemoria) {
