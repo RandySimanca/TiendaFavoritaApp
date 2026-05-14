@@ -80,8 +80,40 @@ export async function inicializarDB() {
       ingresos_total REAL DEFAULT 0,
       utilidad REAL DEFAULT 0,
       transacciones INTEGER DEFAULT 0,
+      inventario_final REAL DEFAULT 0,
       json_detalle TEXT, -- Para guardar desglose de mas vendidos etc
       timestamp INTEGER
+    );
+
+    -- Tabla para el stock físico real
+    CREATE TABLE IF NOT EXISTS inventario_items (
+      id TEXT PRIMARY KEY,
+      producto_id INTEGER,
+      nombre TEXT NOT NULL,
+      proveedor TEXT DEFAULT '',
+      precio_compra REAL DEFAULT 0,
+      precio_venta REAL DEFAULT 0,
+      unidad TEXT DEFAULT 'und',
+      cantidad REAL DEFAULT 0,
+      fecha_conteo TEXT,
+      fecha_vencimiento TEXT,
+      categoria TEXT,
+      notas TEXT,
+      activo INTEGER DEFAULT 1
+    );
+
+    -- Tabla para el historial de movimientos de inventario (Kardex)
+    CREATE TABLE IF NOT EXISTS inventario_movimientos (
+      id TEXT PRIMARY KEY,
+      item_id TEXT,
+      nombre_producto TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      cantidad REAL NOT NULL,
+      precio_unitario REAL DEFAULT 0,
+      valor_total REAL DEFAULT 0,
+      concepto TEXT DEFAULT '',
+      fecha TEXT NOT NULL,
+      timestamp INTEGER NOT NULL
     );
   `);
 
@@ -92,6 +124,7 @@ export async function inicializarDB() {
   await db.execAsync('ALTER TABLE cierres_mensuales ADD COLUMN retiros_total REAL DEFAULT 0;').catch(() => null);
   await db.execAsync('ALTER TABLE cierres_mensuales ADD COLUMN prestamos_total REAL DEFAULT 0;').catch(() => null);
   await db.execAsync('ALTER TABLE cierres_mensuales ADD COLUMN ingresos_total REAL DEFAULT 0;').catch(() => null);
+  await db.execAsync('ALTER TABLE cierres_mensuales ADD COLUMN inventario_final REAL DEFAULT 0;').catch(() => null);
   await db.execAsync('ALTER TABLE cierres_mensuales ADD COLUMN json_detalle TEXT;').catch(() => null);
 }
 
@@ -107,6 +140,7 @@ export async function dbGetCierresMensuales() {
     prestamos_total: number,
     utilidad: number, 
     transacciones: number,
+    inventario_final: number,
     json_detalle: string,
     timestamp: number
   }>('SELECT * FROM cierres_mensuales ORDER BY mes DESC');
@@ -122,11 +156,12 @@ export async function dbInsertCierreMensual(c: {
   ingresos_total: number,
   utilidad: number, 
   transacciones: number,
+  inventario_final?: number,
   json_detalle: string
 }) {
   await db.runAsync(
-    'INSERT OR REPLACE INTO cierres_mensuales (mes, venta_total, compras_total, gasto_total, retiros_total, prestamos_total, ingresos_total, utilidad, transacciones, json_detalle, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    c.mes, c.venta_total, c.compras_total, c.gasto_total, c.retiros_total, c.prestamos_total, c.ingresos_total, c.utilidad, c.transacciones, c.json_detalle, Date.now()
+    'INSERT OR REPLACE INTO cierres_mensuales (mes, venta_total, compras_total, gasto_total, retiros_total, prestamos_total, ingresos_total, utilidad, transacciones, inventario_final, json_detalle, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    c.mes, c.venta_total, c.compras_total, c.gasto_total, c.retiros_total, c.prestamos_total, c.ingresos_total, c.utilidad, c.transacciones, c.inventario_final || 0, c.json_detalle, Date.now()
   );
 }
 
@@ -271,4 +306,45 @@ export async function dbGetBorrador(clave: string) {
 
 export async function dbDeleteBorrador(clave: string) {
   await db.runAsync('DELETE FROM borradores WHERE clave = ?', clave);
+}
+
+// ── Inventario Items ──────────────────────────────
+
+export async function dbGetInventarioItems(): Promise<any[]> {
+  return await db.getAllAsync(`SELECT * FROM inventario_items WHERE activo = 1 ORDER BY nombre`);
+}
+
+export async function dbUpsertInventarioItem(item: any): Promise<void> {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO inventario_items
+     (id, producto_id, nombre, proveedor, precio_compra, precio_venta, unidad,
+      cantidad, fecha_conteo, fecha_vencimiento, categoria, notas, activo)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [item.id, item.producto_id ?? null, item.nombre, item.proveedor ?? '',
+     item.precio_compra ?? 0, item.precio_venta ?? 0, item.unidad ?? 'und',
+     item.cantidad ?? 0, item.fecha_conteo ?? null, item.fecha_vencimiento ?? null,
+     item.categoria ?? null, item.notas ?? null, item.activo ? 1 : 0]
+  );
+}
+
+export async function dbDeleteInventarioItem(id: string): Promise<void> {
+  await db.runAsync(`UPDATE inventario_items SET activo = 0 WHERE id = ?`, [id]);
+}
+
+// ── Inventario Movimientos ────────────────────────
+
+export async function dbGetInventarioMovimientos(limit = 200): Promise<any[]> {
+  return await db.getAllAsync(
+    `SELECT * FROM inventario_movimientos ORDER BY timestamp DESC LIMIT ?`, [limit]
+  );
+}
+
+export async function dbInsertInventarioMovimiento(mov: any): Promise<void> {
+  await db.runAsync(
+    `INSERT OR IGNORE INTO inventario_movimientos
+     (id, item_id, nombre_producto, tipo, cantidad, precio_unitario, valor_total, concepto, fecha, timestamp)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [mov.id, mov.item_id, mov.nombre_producto, mov.tipo, mov.cantidad,
+     mov.precio_unitario ?? 0, mov.valor_total ?? 0, mov.concepto ?? '', mov.fecha, mov.timestamp]
+  );
 }

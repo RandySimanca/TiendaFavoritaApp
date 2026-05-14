@@ -12,6 +12,7 @@ import { useHistorialStore } from '../../store/historialStore';
 import { useMensualStore } from '../../store/mensualStore';
 import { useGastosStore } from '../../store/gastosStore';
 import { usePreciosStore } from '../../store/preciosStore';
+import { useInventarioStore } from '../../store/inventarioStore';
 import { fmt, calcularDia, generarCierreMensual, formatInput, parseInput } from '../../utils/calcular';
 
 const NOTA_AUTO_UNIFICADA = '📲 Transferencias (Ventas + Pagos) — dinero al cel/banco, no a caja';
@@ -24,22 +25,31 @@ function esRetiroAutoTransferencia(nota?: string) {
 
 export default function ContabilidadScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
-  const [tab, setTab] = useState<'RESULTADOS' | 'BALANCE' | 'AUDITORIA'>('RESULTADOS');
+  const [tab, setTab] = useState<'RESULTADOS' | 'BALANCE' | 'INVENTARIO' | 'AUDITORIA'>('RESULTADOS');
   const [mesSeleccionado, setMesSeleccionado] = useState<string>('');
 
-  const { historial, retiros, ingresos, cargando: cHistorial } = useHistorialStore();
+  const { retiros, ingresos, historial, cargando: cHistorial } = useHistorialStore();
   const { cierres, cargar: cMensual, cargando: cCierres } = useMensualStore();
   const { gastos, cargar: cargarGastos, cargando: cGastos } = useGastosStore();
-  const { valorInventario, setValorInventario, cargar: cPrecios } = usePreciosStore();
+  const { valorInventario, setValorInventario, cargar: cPrecios, precios: catalogo } = usePreciosStore();
+  const { 
+    items: itemsInv, movimientos: movsInv, 
+    cargar: cInventario, calcularResumen, 
+    registrarConteoFisico, 
+    sincronizarConCatalogo
+  } = useInventarioStore();
 
   const [editandoInv, setEditandoInv] = useState(false);
+  const [modalConteo, setModalConteo] = useState(false);
+  const [cantidadesConteo, setCantidadesConteo] = useState<Record<string, string>>({});
   const [inpInventario, setInpInventario] = useState('');
 
   useEffect(() => {
     cMensual();
     cargarGastos();
     cPrecios();
-  }, [cMensual, cargarGastos, cPrecios]);
+    cInventario();
+  }, [cMensual, cargarGastos, cPrecios, cInventario]);
 
   // Determinar la lista de meses disponibles
   const mesesHistoricos = Array.from(new Set(historial.map((d: any) => d.fecha?.substring(0, 7)).filter(Boolean))).sort().reverse();
@@ -74,12 +84,50 @@ export default function ContabilidadScreen() {
     
     // Si no está cerrado, calcular en vivo
     const dataMes = generarCierreMensual(mesSeleccionado, historial, gastos);
-    return {
+    const resultadoBase = {
       ventas: dataMes.venta_total,
       costos: dataMes.compras_total,
       utilidadBruta: dataMes.venta_total - dataMes.compras_total,
       gastosOperativos: dataMes.gasto_total,
       utilidadNeta: dataMes.utilidad
+    };
+
+    const calcularCMV = (mes: string): number => {
+      const salidas = movsInv.filter(
+        m => m.fecha.startsWith(mes) && (m.tipo === 'SALIDA' || m.tipo === 'MERMA')
+      );
+      if (salidas.length > 0) {
+         return salidas.reduce((acc, m) => acc + m.valor_total, 0);
+      }
+
+      // FALLBACK MANUAL: CMV = Inv Inicial + Compras - Inv Final
+      const actual = cierres.find(c => c.mes === mes);
+      if (actual && actual.inventario_final > 0) {
+        // Buscar el mes anterior para el inventario inicial
+        const mesFecha = new Date(mes + '-15');
+        mesFecha.setMonth(mesFecha.getMonth() - 1);
+        const mesAntStr = mesFecha.toISOString().slice(0, 7);
+        const anterior = cierres.find(c => c.mes === mesAntStr);
+        
+        const invInicial = anterior ? anterior.inventario_final : 0;
+        const invFinal = actual.inventario_final;
+        
+        // CMV = Inicial + Compras - Final
+        // Solo si el usuario ingresó los valores, si no, regresamos -1 para fallback total
+        return Math.max(0, invInicial + resultadoBase.costos - invFinal);
+      }
+
+      return -1; // fallback: usar compras del historial
+    };
+
+    const cmvReal = calcularCMV(mesSeleccionado);
+    const cmv = cmvReal >= 0 ? cmvReal : resultadoBase.costos;
+
+    return {
+      ...resultadoBase,
+      costos: cmv,
+      utilidadBruta: resultadoBase.ventas - cmv,
+      utilidadNeta: resultadoBase.ventas - cmv - resultadoBase.gastosOperativos
     };
   };
 
@@ -89,12 +137,13 @@ export default function ContabilidadScreen() {
   const generarBalanceGeneral = () => {
     const efectivoEnCaja = historial.length > 0 ? historial[0].cierre || 0 : 0;
     const prestamosAcumulados = historial.reduce((acc, d) => acc + (d.prestamo || 0), 0);
-    const totalActivosLíquidos = efectivoEnCaja + prestamosAcumulados + valorInventario;
-
     const pasivosTotales = 0;
 
     const primerDia = historial.length > 0 ? [...historial].sort((a, b) => a.fecha.localeCompare(b.fecha))[0] : null;
     const capitalInicial = primerDia?.base || 0;
+
+    const resumenInv = calcularResumen();
+    const valorInvFinal = resumenInv.totalItems > 0 ? resumenInv.valorCosto : valorInventario;
 
     const ventasHistoricas = historial.reduce((acc, d) => acc + (calcularDia(d as any).total || 0), 0);
     const comprasHistoricas = historial.reduce((acc, d) => acc + (calcularDia(d as any).compras || 0), 0);
@@ -105,13 +154,13 @@ export default function ContabilidadScreen() {
     const retirosSocios = retiros.reduce((acc, r) => acc + (r.valor || 0), 0);
     const capitalAportado = ingresos.reduce((acc, i) => acc + (i.valor || 0), 0);
 
-    const patrimonio = capitalInicial + utilidadHistorica + valorInventario + capitalAportado - retirosSocios;
+    const patrimonio = capitalInicial + utilidadHistorica + valorInvFinal + capitalAportado - retirosSocios;
 
     return {
       efectivoEnCaja,
       prestamosAcumulados,
-      valorInventario,
-      totalActivosLíquidos,
+      valorInventario: valorInvFinal,
+      totalActivosLíquidos: efectivoEnCaja + prestamosAcumulados + valorInvFinal,
       pasivosTotales,
       capitalInicial,
       primerFecha: primerDia?.fecha || '',
@@ -119,7 +168,7 @@ export default function ContabilidadScreen() {
       retirosSocios,
       capitalAportado,
       patrimonio,
-      descuadre: totalActivosLíquidos - (patrimonio + pasivosTotales)
+      descuadre: (efectivoEnCaja + prestamosAcumulados + valorInvFinal) - (patrimonio + pasivosTotales)
     };
   };
 
@@ -193,6 +242,12 @@ export default function ContabilidadScreen() {
             onPress={() => setTab('BALANCE')}
           >
             <Text style={[styles.segmentText, tab === 'BALANCE' && styles.segmentTextActive]}>Balance</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.segmentBtn, tab === 'INVENTARIO' && styles.segmentBtnActive]}
+            onPress={() => setTab('INVENTARIO')}
+          >
+            <Text style={[styles.segmentText, tab === 'INVENTARIO' && styles.segmentTextActive]}>Inventario</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.segmentBtn, tab === 'AUDITORIA' && styles.segmentBtnActive]}
@@ -281,6 +336,27 @@ export default function ContabilidadScreen() {
               ) : (
                 <Text style={styles.emptyText}>No hay datos para este mes.</Text>
               )}
+
+              {/* Ajuste de Inventario Final para el P&G del mes */}
+              <View style={[styles.reportContainer, { marginTop: 15, backgroundColor: '#f0f9ff', borderColor: '#bae6fd', borderWidth: 1 }]}>
+                 <Text style={[styles.sectionHeader, { color: '#0369a1' }]}>AJUSTE DE INVENTARIO PARA ESTE MES</Text>
+                 <View style={styles.row}>
+                    <Text style={{ fontSize: 13, color: '#0c4a6e', flex: 1 }}>Ingresa el valor total de mercancía al final de este mes para calcular el costo real:</Text>
+                    <TextInput 
+                      style={[styles.invInput, { borderColor: '#7dd3fc', width: 120 }]}
+                      placeholder="$ 0"
+                      keyboardType="numeric"
+                      defaultValue={formatInput(cierres.find(c => c.mes === mesSeleccionado)?.inventario_final || 0)}
+                      onEndEditing={(e) => {
+                         const val = parseInput(e.nativeEvent.text);
+                         useMensualStore.getState().realizarCierre(mesSeleccionado, historial, val);
+                      }}
+                    />
+                 </View>
+                 <Text style={{ fontSize: 10, color: '#0369a1', marginTop: 5, fontStyle: 'italic' }}>
+                    * Esto calculará el CMV como: (Inv. Mes Anterior + Compras - Inv. Final)
+                 </Text>
+              </View>
             </View>
           </View>
         )}
@@ -333,6 +409,82 @@ export default function ContabilidadScreen() {
           </View>
         )}
 
+        {tab === 'INVENTARIO' && (
+          <View style={styles.tabContent}>
+            <View style={[styles.card, { marginTop: 20 }]}>
+              <View style={styles.cardHeader}>
+                <MaterialCommunityIcons name="calculator" size={24} color={Colors.green} />
+                <Text style={styles.cardTitle}>Valorización Manual</Text>
+              </View>
+              <Text style={styles.cardDesc}>
+                Ingresa el valor total estimado de toda tu mercancía actual en dinero. Este valor se usará para el Balance General.
+              </Text>
+              <View style={styles.reportContainer}>
+                <View style={styles.row}>
+                  <Text style={styles.rowLabelBold}>Mercancía Total (Hoy)</Text>
+                  <TextInput 
+                    style={[styles.invInput, { width: 150, fontSize: 18 }]}
+                    value={inpInventario}
+                    onChangeText={t => setInpInventario(formatInput(t))}
+                    onEndEditing={() => setValorInventario(parseInput(inpInventario))}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* KPIs del Inventario (Calculados desde el valor manual o items) */}
+            {(() => {
+              const valManual = valorInventario;
+              return (
+                <View style={styles.inventoryKpiRow}>
+                  <View style={[styles.kpiCard, { borderLeftColor: Colors.blue }]}>
+                    <Text style={styles.kpiLabel}>Valor en Stock</Text>
+                    <Text style={styles.kpiValue}>{fmt(valManual)}</Text>
+                  </View>
+                  <View style={[styles.kpiCard, { borderLeftColor: Colors.gold }]}>
+                    <Text style={styles.kpiLabel}>Utilidad Est.</Text>
+                    <Text style={styles.kpiValue}>{fmt(valManual * 0.3)}</Text>
+                    <Text style={{ fontSize: 8, color: Colors.gray }}>Est. 30% margen</Text>
+                  </View>
+                </View>
+              );
+            })()}
+
+            <View style={[styles.card, { marginTop: 20 }]}>
+              <View style={styles.cardHeader}>
+                <MaterialCommunityIcons name="format-list-bulleted" size={20} color={Colors.gray} />
+                <Text style={[styles.cardTitle, { fontSize: 16 }]}>Control de Artículos (Opcional)</Text>
+              </View>
+              <Text style={styles.cardDesc}>
+                Si deseas llevar un conteo detallado por producto, puedes usar las herramientas de abajo.
+              </Text>
+              
+              <View style={styles.actionButtons}>
+                <TouchableOpacity 
+                  style={[styles.actionBtn, { backgroundColor: Colors.blue }]} 
+                  onPress={() => sincronizarConCatalogo(catalogo)}
+                >
+                  <MaterialCommunityIcons name="sync" size={18} color="white" />
+                  <Text style={styles.actionBtnText}>Cargar Catálogo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.actionBtn, { backgroundColor: Colors.green }]} 
+                  onPress={() => {
+                    const initial: Record<string, string> = {};
+                    itemsInv.forEach(i => initial[i.id] = String(i.cantidad));
+                    setCantidadesConteo(initial);
+                    setModalConteo(true);
+                  }}
+                >
+                  <MaterialCommunityIcons name="clipboard-check" size={18} color="white" />
+                  <Text style={styles.actionBtnText}>Conteo Físico</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
         {tab === 'AUDITORIA' && (
           <View style={styles.tabContent}>
             <View style={[styles.card, { marginTop: 20 }]}>
@@ -362,6 +514,42 @@ export default function ContabilidadScreen() {
               ) : (
                 <Text style={styles.emptyText}>¡Felicidades! No se han detectado inconsistencias importantes en el historial.</Text>
               )}
+            </View>
+          </View>
+        )}
+        {modalConteo && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Conteo Físico Real</Text>
+              <Text style={styles.modalSub}>Ingresa lo que tienes físicamente en la tienda hoy.</Text>
+              <ScrollView style={{ maxHeight: 400 }}>
+                {itemsInv.filter(i => i.activo).map(item => (
+                  <View key={item.id} style={styles.conteoRow}>
+                    <Text style={styles.conteoName}>{item.nombre}</Text>
+                    <TextInput 
+                      style={styles.conteoInput}
+                      keyboardType="numeric"
+                      value={cantidadesConteo[item.id]}
+                      onChangeText={v => setCantidadesConteo(prev => ({ ...prev, [item.id]: v }))}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setModalConteo(false)}>
+                  <Text style={styles.modalBtnText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalBtnOk} onPress={() => {
+                  const data = Object.entries(cantidadesConteo).map(([id, cant]) => ({
+                    id,
+                    cantidad: parseFloat(cant) || 0
+                  }));
+                  registrarConteoFisico(data);
+                  setModalConteo(false);
+                }}>
+                  <Text style={styles.modalBtnText}>Guardar Conteo</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         )}
@@ -419,5 +607,36 @@ const styles = StyleSheet.create({
   rowSuccess: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#f0fdf4', padding: 10, borderRadius: 8, marginTop: 5, borderWidth: 1, borderColor: '#dcfce7' },
   progressBg: { height: 10, backgroundColor: '#e2e8f0', borderRadius: 5, marginTop: 15, overflow: 'hidden' },
   progressBar: { height: '100%', borderRadius: 5 },
-  progressText: { fontSize: 12, color: Colors.gray, marginTop: 8, textAlign: 'center', fontWeight: '600' }
+  progressText: { fontSize: 12, color: Colors.gray, marginTop: 8, textAlign: 'center', fontWeight: '600' },
+
+  // Estilos Inventario
+  inventoryKpiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16, marginTop: 15 },
+  kpiCard: { flex: 1, minWidth: '45%', backgroundColor: 'white', padding: 12, borderRadius: 12, borderLeftWidth: 4, elevation: 1 },
+  kpiLabel: { fontSize: 10, color: Colors.gray, fontWeight: '800', textTransform: 'uppercase' },
+  kpiValue: { fontSize: 15, fontWeight: '900', color: Colors.dark, marginTop: 2 },
+  actionButtons: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginVertical: 15 },
+  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
+  actionBtnText: { color: 'white', fontWeight: '800', fontSize: 13 },
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  itemName: { fontSize: 14, fontWeight: '800', color: Colors.dark },
+  itemSub: { fontSize: 11, color: Colors.gray },
+  itemQty: { fontSize: 14, fontWeight: '900', color: Colors.dark },
+  itemValue: { fontSize: 10, color: Colors.gray },
+  movRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  movName: { fontSize: 13, fontWeight: '700', color: Colors.dark },
+  movDetail: { fontSize: 11, color: Colors.gray },
+  movQty: { fontSize: 14, fontWeight: '900' },
+
+  // Modal
+  modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalContent: { backgroundColor: 'white', borderRadius: 20, padding: 20, elevation: 5 },
+  modalTitle: { fontSize: 18, fontWeight: '900', color: Colors.dark },
+  modalSub: { fontSize: 13, color: Colors.gray, marginBottom: 15 },
+  conteoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  conteoName: { fontSize: 14, fontWeight: '600', flex: 1 },
+  conteoInput: { backgroundColor: '#f1f5f9', padding: 8, borderRadius: 8, width: 80, textAlign: 'right', fontWeight: '800' },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  modalBtnCancel: { flex: 1, padding: 12, borderRadius: 10, backgroundColor: Colors.gray, alignItems: 'center' },
+  modalBtnOk: { flex: 1, padding: 12, borderRadius: 10, backgroundColor: Colors.green, alignItems: 'center' },
+  modalBtnText: { color: 'white', fontWeight: '900' }
 });

@@ -14,6 +14,7 @@ export interface CierreMensual {
   ingresos_total: number;
   utilidad: number;
   transacciones: number;
+  inventario_final: number;
   json_detalle: string;
   timestamp: number;
 }
@@ -23,7 +24,7 @@ interface MensualStore {
   cargando: boolean;
 
   cargar: () => Promise<void>;
-  realizarCierre: (mes: string, historial: any[]) => Promise<void>;
+  realizarCierre: (mes: string, historial: any[], inventarioFinal?: number) => Promise<void>;
   suscribirCambios: () => void;
 }
 
@@ -54,10 +55,11 @@ export const useMensualStore = create<MensualStore>((set, get) => ({
     }
   },
 
-  realizarCierre: async (mes, historial) => {
+  realizarCierre: async (mes, historial, inventarioFinal) => {
     try {
       const gastosAdmon = useGastosStore.getState().gastos;
-      const cierre = generarCierreMensual(mes, historial, gastosAdmon);
+      const cierreData = generarCierreMensual(mes, historial, gastosAdmon);
+      const cierre = { ...cierreData, inventario_final: inventarioFinal || 0 };
       
       // 1. Local
       await dbInsertCierreMensual(cierre);
