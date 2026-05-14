@@ -81,7 +81,7 @@ interface DiaStore extends EstadoDia {
 }
 
 // Tipo auxiliar para nombrar las listas de filas
-type FilasStore = Pick<DiaStore, 'gastos' | 'creditos' | 'pagos' | 'transferenciaVentas' | 'transferenciaPagos'>;
+export type FilasStore = Pick<DiaStore, 'gastos' | 'creditos' | 'pagos' | 'transferenciaVentas' | 'transferenciaPagos'>;
 
 export const useDiaStore = create<DiaStore>((set, get) => ({
   // Estado inicial

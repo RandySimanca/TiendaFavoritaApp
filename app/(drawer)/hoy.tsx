@@ -16,7 +16,7 @@ import { CardSection }   from '../../components/ui/CardSection';
 import { ItemRow }       from '../../components/ui/ItemRow';
 import { ResultadoDia }  from '../../components/ui/ResultadoDia';
 import { TotalBox }      from '../../components/ui/TotalBox';
-import { useDiaStore }   from '../../store/diaStore';
+import { useDiaStore, FilasStore } from '../../store/diaStore';
 import { useHistorialStore } from '../../store/historialStore';
 import { useAuthStore }  from '../../store/authStore';
 import { Colors }        from '../../constants/Colors';
@@ -35,7 +35,7 @@ export default function HoyScreen() {
     facturas, gastos, creditos, pagos, transferenciaVentas, transferenciaPagos,
     setBase, setCierre, setRetiro, setIngreso, setFecha, setPrestamo, setNotaPrestamo,
     agregarFactura, eliminarFactura, procesarFacturaIA,
-    limpiar, cargarDiaActual
+    limpiar, cargarDiaActual, cargando
   } = useDiaStore();
 
   const [resultado, setResultado] = useState<any>(null);
@@ -149,8 +149,8 @@ export default function HoyScreen() {
     }
   };
 
-  const renderFilas = (tipo: any, placeholder: string, color: any) => {
-    const filas = (useDiaStore.getState() as any)[tipo] || [];
+  const renderFilas = (tipo: keyof FilasStore, placeholder: string, color: string) => {
+    const filas = { gastos, creditos, pagos, transferenciaVentas, transferenciaPagos }[tipo] || [];
     return (
       <View>
         {filas.map((f: any, i: number) => (
@@ -248,7 +248,14 @@ export default function HoyScreen() {
         contentContainerStyle={estilos.contenido}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={estilos.fechaRow}>
+        {cargando ? (
+          <View style={{ padding: 40, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={Colors.blue} />
+            <Text style={{ marginTop: 10, color: Colors.gray, fontWeight: '700' }}>Cargando datos del día...</Text>
+          </View>
+        ) : (
+          <>
+            <View style={estilos.fechaRow}>
           <Text style={estilos.fechaLabel}>📅 Fecha de trabajo:</Text>
           <TouchableOpacity style={estilos.fechaSelect} onPress={() => setShowPicker(true)}>
             <Text style={estilos.fechaTexto}>{fecha || 'Seleccionar...'}</Text>
@@ -484,6 +491,8 @@ export default function HoyScreen() {
             <TouchableOpacity style={estilos.btnGuardar} onPress={handleGuardar}><Text style={estilos.btnGuardarTexto}>Guardar dia</Text></TouchableOpacity>
             <TouchableOpacity style={estilos.btnNuevo} onPress={handleNuevoDia}><Text style={estilos.btnNuevoTexto}>Nuevo dia</Text></TouchableOpacity>
           </View>
+        )}
+        </>
         )}
         <View style={{ height: 30 }} />
       </ScrollView>

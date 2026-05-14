@@ -15,13 +15,6 @@ import { usePreciosStore } from '../../store/preciosStore';
 import { useInventarioStore } from '../../store/inventarioStore';
 import { fmt, calcularDia, generarCierreMensual, formatInput, parseInput } from '../../utils/calcular';
 
-const NOTA_AUTO_UNIFICADA = '📲 Transferencias (Ventas + Pagos) — dinero al cel/banco, no a caja';
-const NOTA_AUTO_TV = '📲 Ventas por transferencia — dinero al cel/banco, no a caja';
-const NOTA_AUTO_TP = '📲 Pagos de deuda (transferencia) — dinero al cel/banco, no a caja';
-
-function esRetiroAutoTransferencia(nota?: string) {
-  return nota === NOTA_AUTO_UNIFICADA || nota === NOTA_AUTO_TV || nota === NOTA_AUTO_TP;
-}
 
 export default function ContabilidadScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
@@ -167,6 +160,7 @@ export default function ContabilidadScreen() {
       utilidadHistorica,
       retirosSocios,
       capitalAportado,
+      gastosAdmonTotales,
       patrimonio,
       descuadre: (efectivoEnCaja + prestamosAcumulados + valorInvFinal) - (patrimonio + pasivosTotales)
     };
@@ -176,7 +170,9 @@ export default function ContabilidadScreen() {
 
   // ===== DATOS: RECUPERACIÓN DE CAPITAL =====
   const inversionTotal = (balance.capitalInicial || 0) + (balance.capitalAportado || 0);
-  const retirosReales = retiros.filter(r => !esRetiroAutoTransferencia(r.nota)).reduce((acc, r) => acc + (r.valor || 0), 0);
+  const retirosBrutos = balance.retirosSocios;
+  const pagosGastos = balance.gastosAdmonTotales;
+  const retirosReales = retirosBrutos - pagosGastos;
   const capitalPendiente = inversionTotal - retirosReales;
   const recuperado = capitalPendiente <= 0;
   const porcentajeRecuperado = inversionTotal > 0 ? Math.min(100, (retirosReales / inversionTotal) * 100) : 0;
@@ -259,10 +255,11 @@ export default function ContabilidadScreen() {
       </LinearGradient>
 
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ paddingBottom: 300 }} keyboardShouldPersistTaps="handled">
 
         {tab === 'RESULTADOS' && (
           <View style={styles.tabContent}>
@@ -278,49 +275,6 @@ export default function ContabilidadScreen() {
               ))}
             </ScrollView>
 
-            {/* Nueva Tarjeta: Recuperación de Capital */}
-            <View style={[styles.card, { marginBottom: 20 }]}>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons 
-                  name={recuperado ? "trophy-outline" : "finance"} 
-                  size={24} 
-                  color={recuperado ? Colors.green : Colors.gold} 
-                />
-                <Text style={styles.cardTitle}>Recuperación de Capital</Text>
-              </View>
-              <View style={styles.reportContainer}>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabel}>Inversión Inicial + Aportes</Text>
-                  <Text style={styles.rowValue}>{fmt(inversionTotal)}</Text>
-                </View>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabel}>(-) Retiros de Dueño (Recuperado)</Text>
-                  <Text style={styles.rowValuePos}>{fmt(retirosReales)}</Text>
-                </View>
-                <View style={styles.dividerBold} />
-                
-                <View style={capitalPendiente > 0 ? styles.rowPending : styles.rowSuccess}>
-                  <Text style={styles.rowLabelBold}>
-                    {capitalPendiente > 0 ? 'Saldo por Recuperar' : 'Excedente (Ganancia Real)'}
-                  </Text>
-                  <Text style={styles.rowValueBold}>{fmt(Math.abs(capitalPendiente))}</Text>
-                </View>
-
-                {/* Barra de progreso */}
-                <View style={styles.progressBg}>
-                  <LinearGradient 
-                    colors={recuperado ? [Colors.green, '#22c55e'] : [Colors.gold, '#f59e0b']}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                    style={[styles.progressBar, { width: `${porcentajeRecuperado}%` }]}
-                  />
-                </View>
-                <Text style={styles.progressText}>
-                  {recuperado 
-                    ? '¡Felicidades! Has recuperado tu inversión inicial y el negocio está dando ganancias reales.'
-                    : `Has recuperado el ${porcentajeRecuperado.toFixed(1)}% de tu inversión inicial.`}
-                </Text>
-              </View>
-            </View>
 
             <View style={styles.card}>
               <View style={styles.cardHeader}>
@@ -347,9 +301,11 @@ export default function ContabilidadScreen() {
                  <View style={styles.row}>
                     <Text style={{ fontSize: 13, color: '#0c4a6e', flex: 1 }}>Ingresa el valor total de mercancía al final de este mes para calcular el costo real:</Text>
                     <TextInput 
-                      style={[styles.invInput, { borderColor: '#7dd3fc', width: 120 }]}
+                      style={[styles.invInput, { borderColor: '#7dd3fc', width: 130, color: '#000000', fontSize: 16 }]}
                       placeholder="$ 0"
-                      placeholderTextColor={Colors.gray}
+                      placeholderTextColor="#94a3b8"
+                      cursorColor="#000000"
+                      selectionColor="#cbd5e1"
                       keyboardType="numeric"
                       defaultValue={formatInput(cierres.find(c => c.mes === mesSeleccionado)?.inventario_final || 0)}
                       onEndEditing={(e) => {
@@ -381,8 +337,21 @@ export default function ContabilidadScreen() {
                   <Text style={styles.rowLabel}>Inventario (Mercancía)</Text>
                   {editandoInv ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                      <TextInput style={styles.invInput} value={inpInventario} onChangeText={t => setInpInventario(formatInput(t))} keyboardType="numeric" autoFocus />
-                      <TouchableOpacity onPress={() => { setValorInventario(parseInput(inpInventario)); setEditandoInv(false); }}>
+                      <TextInput 
+                        style={[styles.invInput, { color: '#000000' }]} 
+                        value={inpInventario} 
+                        onChangeText={t => setInpInventario(formatInput(t))} 
+                        keyboardType="numeric" 
+                        autoFocus 
+                        cursorColor="#000000"
+                      />
+                      <TouchableOpacity onPress={() => { 
+                        const val = parseInput(inpInventario);
+                        setValorInventario(val); 
+                        setEditandoInv(false); 
+                        const mesActual = new Date().toISOString().slice(0, 7);
+                        useMensualStore.getState().realizarCierre(mesActual, historial, val);
+                      }}>
                         <MaterialCommunityIcons name="check-circle" size={24} color={Colors.green} />
                       </TouchableOpacity>
                     </View>
@@ -411,6 +380,51 @@ export default function ContabilidadScreen() {
                 )}
               </View>
             </View>
+
+            {/* Tarjeta: Recuperación de Capital */}
+            <View style={[styles.card, { marginTop: 20 }]}>
+              <View style={styles.cardHeader}>
+                <MaterialCommunityIcons 
+                  name={recuperado ? "trophy-outline" : "finance"} 
+                  size={24} 
+                  color={recuperado ? Colors.green : Colors.gold} 
+                />
+                <Text style={styles.cardTitle}>Recuperación de Capital</Text>
+              </View>
+              <View style={styles.reportContainer}>
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>Inversión Inicial + Aportes</Text>
+                  <Text style={styles.rowValue}>{fmt(inversionTotal)}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>(+) Retiros Brutos de Caja</Text>
+                  <Text style={styles.rowValuePos}>{fmt(retirosBrutos)}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>(-) Pago de Gastos (Servicios/Nómina)</Text>
+                  <Text style={styles.rowValueNeg}>{fmt(pagosGastos)}</Text>
+                </View>
+                <View style={styles.dividerBold} />
+                <View style={styles.row}>
+                  <Text style={styles.rowLabelBold}>Retiro Neto (Tus Ganancias)</Text>
+                  <Text style={styles.rowValueBold}>{fmt(retirosReales)}</Text>
+                </View>
+                <View style={styles.dividerBold} />
+                
+                <View style={capitalPendiente > 0 ? styles.rowPending : styles.rowSuccess}>
+                  <Text style={styles.rowLabelBold}>
+                    {capitalPendiente > 0 ? 'Faltante por Recuperar' : 'Excedente (Ganancia Real)'}
+                  </Text>
+                  <Text style={styles.rowValueBold}>{fmt(Math.abs(capitalPendiente))}</Text>
+                </View>
+                <View style={styles.progressBg}>
+                  <LinearGradient colors={recuperado ? [Colors.green, '#22c55e'] : [Colors.gold, '#f59e0b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.progressBar, { width: `${porcentajeRecuperado}%` }]} />
+                </View>
+                <Text style={styles.progressText}>
+                  {recuperado ? '¡Felicidades! Has recuperado tu inversión inicial.' : `Has recuperado el ${porcentajeRecuperado.toFixed(1)}% de tu inversión inicial.`}
+                </Text>
+              </View>
+            </View>
           </View>
         )}
 
@@ -431,7 +445,13 @@ export default function ContabilidadScreen() {
                     style={[styles.invInput, { width: 150, fontSize: 18 }]}
                     value={inpInventario}
                     onChangeText={t => setInpInventario(formatInput(t))}
-                    onEndEditing={() => setValorInventario(parseInput(inpInventario))}
+                    onEndEditing={() => {
+                      const val = parseInput(inpInventario);
+                      setValorInventario(val);
+                      // Vincular con el cierre del mes actual automáticamente
+                      const mesActual = new Date().toISOString().slice(0, 7);
+                      useMensualStore.getState().realizarCierre(mesActual, historial, val);
+                    }}
                     keyboardType="numeric"
                   />
                 </View>
