@@ -50,6 +50,12 @@ export default function ContabilidadScreen() {
     cInventario();
   }, [cMensual, cargarGastos, cPrecios, cInventario]);
 
+  useEffect(() => {
+    if (valorInventario > 0 && !inpInventario) {
+      setInpInventario(formatInput(valorInventario));
+    }
+  }, [valorInventario, inpInventario]);
+
   // Determinar la lista de meses disponibles
   const mesesHistoricos = Array.from(new Set(historial.map((d: any) => d.fecha?.substring(0, 7)).filter(Boolean))).sort().reverse();
 
@@ -142,7 +148,8 @@ export default function ContabilidadScreen() {
     const capitalInicial = primerDia?.base || 0;
 
     const resumenInv = calcularResumen();
-    const valorInvFinal = resumenInv.totalItems > 0 ? resumenInv.valorCosto : valorInventario;
+    // Priorizar el valor más alto entre el cálculo automático y la valoración manual
+    const valorInvFinal = Math.max(resumenInv.valorCosto, valorInventario);
 
     const ventasHistoricas = historial.reduce((acc, d) => acc + (calcularDia(d as any).total || 0), 0);
     const comprasHistoricas = historial.reduce((acc, d) => acc + (calcularDia(d as any).compras || 0), 0);
@@ -184,9 +191,17 @@ export default function ContabilidadScreen() {
   const retirosBrutos = balance.retirosSocios;
   const pagosGastos = balance.gastosAdmonTotales;
   const retirosReales = retirosBrutos - pagosGastos;
-  const capitalPendiente = inversionTotal - retirosReales;
-  const recuperado = capitalPendiente <= 0;
-  const porcentajeRecuperado = inversionTotal > 0 ? Math.min(100, (retirosReales / inversionTotal) * 100) : 0;
+  
+  // Faltante solo en Efectivo (Sin contar mercancía)
+  const faltanteEfectivo = inversionTotal - retirosReales;
+  const valorMercancia = balance.valorInventario;
+  
+  // Resultado Real Final (Teniendo en cuenta la mercancía)
+  const capitalPendienteReal = faltanteEfectivo - valorMercancia;
+  const recuperado = capitalPendienteReal <= 0;
+  
+  const riquezaTotal = retirosReales + valorMercancia;
+  const porcentajeRecuperado = inversionTotal > 0 ? Math.min(100, (riquezaTotal / inversionTotal) * 100) : 0;
 
   // ===== DATOS: AUDITORÍA =====
   const generarAuditoria = () => {
@@ -420,22 +435,32 @@ export default function ContabilidadScreen() {
                   </View>
                   <View style={styles.dividerBold} />
                   <View style={styles.row}>
-                    <Text style={styles.rowLabelBold}>Retiro Neto (Tus Ganancias)</Text>
+                    <Text style={styles.rowLabelBold}>Retiro Neto (Caja/Banco)</Text>
                     <Text style={styles.rowValueBold}>{fmt(retirosReales)}</Text>
+                  </View>
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>Faltante (Solo Efectivo)</Text>
+                    <Text style={styles.rowValue}>{fmt(Math.max(0, faltanteEfectivo))}</Text>
+                  </View>
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>(-) Valor de Mercancía Actual</Text>
+                    <Text style={styles.rowValuePos}>{fmt(valorMercancia)}</Text>
                   </View>
                   <View style={styles.dividerBold} />
 
-                  <View style={capitalPendiente > 0 ? styles.rowPending : styles.rowSuccess}>
+                  <View style={capitalPendienteReal > 0 ? styles.rowPending : styles.rowSuccess}>
                     <Text style={styles.rowLabelBold}>
-                      {capitalPendiente > 0 ? 'Faltante por Recuperar' : 'Excedente (Ganancia Real)'}
+                      {capitalPendienteReal > 0 ? 'Faltante Real por Recuperar' : 'Excedente (Ganancia Real)'}
                     </Text>
-                    <Text style={styles.rowValueBold}>{fmt(Math.abs(capitalPendiente))}</Text>
+                    <Text style={styles.rowValueBold}>{fmt(Math.abs(capitalPendienteReal))}</Text>
                   </View>
                   <View style={styles.progressBg}>
                     <LinearGradient colors={recuperado ? [Colors.green, '#22c55e'] : [Colors.gold, '#f59e0b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.progressBar, { width: `${porcentajeRecuperado}%` }]} />
                   </View>
                   <Text style={styles.progressText}>
-                    {recuperado ? '¡Felicidades! Has recuperado tu inversión inicial.' : `Has recuperado el ${porcentajeRecuperado.toFixed(1)}% de tu inversión inicial.`}
+                    {recuperado 
+                      ? '¡Felicidades! El valor de tu negocio supera tu inversión inicial.' 
+                      : `Has asegurado el ${porcentajeRecuperado.toFixed(1)}% de tu inversión entre efectivo e inventario.`}
                   </Text>
                 </View>
               </View>
