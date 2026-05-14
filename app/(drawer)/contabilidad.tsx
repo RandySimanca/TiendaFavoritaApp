@@ -1,19 +1,25 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, TextInput, KeyboardAvoidingView, Platform
-} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from 'expo-router';
-import { DrawerNavigationProp } from '@react-navigation/drawer';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView, Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { Colors } from '../../constants/Colors';
-import { useHistorialStore } from '../../store/historialStore';
-import { useMensualStore } from '../../store/mensualStore';
 import { useGastosStore } from '../../store/gastosStore';
-import { usePreciosStore } from '../../store/preciosStore';
+import { useHistorialStore } from '../../store/historialStore';
 import { useInventarioStore } from '../../store/inventarioStore';
-import { fmt, calcularDia, generarCierreMensual, formatInput, parseInput } from '../../utils/calcular';
+import { useMensualStore } from '../../store/mensualStore';
+import { usePreciosStore } from '../../store/preciosStore';
+import { calcularDia, fmt, formatInput, generarCierreMensual, parseInput } from '../../utils/calcular';
 
 
 export default function ContabilidadScreen() {
@@ -25,10 +31,10 @@ export default function ContabilidadScreen() {
   const { cierres, cargar: cMensual, cargando: cCierres } = useMensualStore();
   const { gastos, cargar: cargarGastos, cargando: cGastos } = useGastosStore();
   const { valorInventario, setValorInventario, cargar: cPrecios, precios: catalogo } = usePreciosStore();
-  const { 
-    items: itemsInv, movimientos: movsInv, 
-    cargar: cInventario, calcularResumen, 
-    registrarConteoFisico, 
+  const {
+    items: itemsInv, movimientos: movsInv,
+    cargar: cInventario, calcularResumen,
+    registrarConteoFisico,
     sincronizarConCatalogo
   } = useInventarioStore();
 
@@ -62,7 +68,7 @@ export default function ContabilidadScreen() {
   // ===== DATOS: ESTADO DE RESULTADOS =====
   const generarEstadoResultados = () => {
     if (!mesSeleccionado) return null;
-    
+
     // Buscar si hay cierre oficial
     const cerrado = cierres.find(c => c.mes === mesSeleccionado);
     if (cerrado) {
@@ -74,7 +80,7 @@ export default function ContabilidadScreen() {
         utilidadNeta: cerrado.utilidad
       };
     }
-    
+
     // Si no está cerrado, calcular en vivo
     const dataMes = generarCierreMensual(mesSeleccionado, historial, gastos);
     const resultadoBase = {
@@ -90,7 +96,7 @@ export default function ContabilidadScreen() {
         m => m.fecha.startsWith(mes) && (m.tipo === 'SALIDA' || m.tipo === 'MERMA')
       );
       if (salidas.length > 0) {
-         return salidas.reduce((acc, m) => acc + m.valor_total, 0);
+        return salidas.reduce((acc, m) => acc + m.valor_total, 0);
       }
 
       // FALLBACK MANUAL: CMV = Inv Inicial + Compras - Inv Final
@@ -101,10 +107,10 @@ export default function ContabilidadScreen() {
         mesFecha.setMonth(mesFecha.getMonth() - 1);
         const mesAntStr = mesFecha.toISOString().slice(0, 7);
         const anterior = cierres.find(c => c.mes === mesAntStr);
-        
+
         const invInicial = anterior ? anterior.inventario_final : 0;
         const invFinal = actual.inventario_final;
-        
+
         // CMV = Inicial + Compras - Final
         // Solo si el usuario ingresó los valores, si no, regresamos -1 para fallback total
         return Math.max(0, invInicial + resultadoBase.costos - invFinal);
@@ -144,25 +150,30 @@ export default function ContabilidadScreen() {
     const gastosAdmonTotales = gastos.reduce((acc, g) => acc + (g.monto || 0), 0);
 
     const utilidadHistorica = ventasHistoricas - comprasHistoricas - gastosCajaHistoricos - gastosAdmonTotales;
-    const retirosSocios = retiros.reduce((acc, r) => acc + (r.valor || 0), 0);
+    const retirosBrutos = retiros.reduce((acc, r) => acc + (r.valor || 0), 0);
     const capitalAportado = ingresos.reduce((acc, i) => acc + (i.valor || 0), 0);
 
-    const patrimonio = capitalInicial + utilidadHistorica + valorInvFinal + capitalAportado - retirosSocios;
+    // El dinero en banco es lo que salió de caja pero no se usó para gastos administrativos
+    const dineroEnBanco = Math.max(0, retirosBrutos - gastosAdmonTotales);
+
+    const totalActivos = efectivoEnCaja + prestamosAcumulados + valorInvFinal + dineroEnBanco;
+    const patrimonio = capitalInicial + utilidadHistorica + valorInvFinal + capitalAportado;
 
     return {
       efectivoEnCaja,
       prestamosAcumulados,
       valorInventario: valorInvFinal,
-      totalActivosLíquidos: efectivoEnCaja + prestamosAcumulados + valorInvFinal,
+      dineroEnBanco,
+      totalActivosLíquidos: totalActivos,
       pasivosTotales,
       capitalInicial,
       primerFecha: primerDia?.fecha || '',
       utilidadHistorica,
-      retirosSocios,
+      retirosSocios: retirosBrutos,
       capitalAportado,
       gastosAdmonTotales,
       patrimonio,
-      descuadre: (efectivoEnCaja + prestamosAcumulados + valorInvFinal) - (patrimonio + pasivosTotales)
+      descuadre: totalActivos - (patrimonio + pasivosTotales)
     };
   };
 
@@ -181,7 +192,7 @@ export default function ContabilidadScreen() {
   const generarAuditoria = () => {
     const logs: any[] = [];
     const diasOrdenados = [...historial].sort((a, b) => a.fecha.localeCompare(b.fecha));
-    
+
     let saldoAnterior = -1;
 
     diasOrdenados.forEach((dia, i) => {
@@ -227,25 +238,25 @@ export default function ContabilidadScreen() {
 
         {/* Segmented Control with 3 options */}
         <View style={styles.segmentContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.segmentBtn, tab === 'RESULTADOS' && styles.segmentBtnActive]}
             onPress={() => setTab('RESULTADOS')}
           >
             <Text style={[styles.segmentText, tab === 'RESULTADOS' && styles.segmentTextActive]}>P&G</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.segmentBtn, tab === 'BALANCE' && styles.segmentBtnActive]}
             onPress={() => setTab('BALANCE')}
           >
             <Text style={[styles.segmentText, tab === 'BALANCE' && styles.segmentTextActive]}>Balance</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.segmentBtn, tab === 'INVENTARIO' && styles.segmentBtnActive]}
             onPress={() => setTab('INVENTARIO')}
           >
             <Text style={[styles.segmentText, tab === 'INVENTARIO' && styles.segmentTextActive]}>Inventario</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.segmentBtn, tab === 'AUDITORIA' && styles.segmentBtnActive]}
             onPress={() => setTab('AUDITORIA')}
           >
@@ -254,53 +265,53 @@ export default function ContabilidadScreen() {
         </View>
       </LinearGradient>
 
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView contentContainerStyle={{ paddingBottom: 300 }} keyboardShouldPersistTaps="handled">
 
-        {tab === 'RESULTADOS' && (
-          <View style={styles.tabContent}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monthScroll} contentContainerStyle={{ paddingHorizontal: 20 }}>
-              {mesesHistoricos.map(m => (
-                <TouchableOpacity 
-                  key={m} 
-                  style={[styles.monthChip, mesSeleccionado === m && styles.monthChipActive]}
-                  onPress={() => setMesSeleccionado(m)}
-                >
-                  <Text style={[styles.monthChipText, mesSeleccionado === m && styles.monthChipTextActive]}>{m}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+          {tab === 'RESULTADOS' && (
+            <View style={styles.tabContent}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monthScroll} contentContainerStyle={{ paddingHorizontal: 20 }}>
+                {mesesHistoricos.map(m => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[styles.monthChip, mesSeleccionado === m && styles.monthChipActive]}
+                    onPress={() => setMesSeleccionado(m)}
+                  >
+                    <Text style={[styles.monthChipText, mesSeleccionado === m && styles.monthChipTextActive]}>{m}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
 
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="movie-roll" size={24} color={Colors.blue} />
-                <Text style={styles.cardTitle}>Estado de Resultados ({mesSeleccionado || 'N/A'})</Text>
-              </View>
-              {resultados ? (
-                <View style={styles.reportContainer}>
-                  <View style={styles.row}><Text style={styles.rowLabel}>Ingresos (Ventas)</Text><Text style={styles.rowValuePos}>{fmt(resultados.ventas)}</Text></View>
-                  <View style={styles.row}><Text style={styles.rowLabel}>(-) Costo (Compras)</Text><Text style={styles.rowValueNeg}>{fmt(resultados.costos)}</Text></View>
-                  <View style={styles.dividerBold} />
-                  <View style={styles.row}><Text style={styles.rowLabelBold}>Utilidad Bruta</Text><Text style={styles.rowValueBold}>{fmt(resultados.utilidadBruta)}</Text></View>
-                  <View style={styles.row}><Text style={styles.rowLabel}>(-) Gastos Operacionales</Text><Text style={styles.rowValueNeg}>{fmt(resultados.gastosOperativos)}</Text></View>
-                  <View style={styles.dividerBold} />
-                  <View style={styles.rowPrimary}><Text style={styles.rowPrimaryLabel}>UTILIDAD NETA</Text><Text style={styles.rowPrimaryValue}>{fmt(resultados.utilidadNeta)}</Text></View>
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <MaterialCommunityIcons name="movie-roll" size={24} color={Colors.blue} />
+                  <Text style={styles.cardTitle}>Estado de Resultados ({mesSeleccionado || 'N/A'})</Text>
                 </View>
-              ) : (
-                <Text style={styles.emptyText}>No hay datos para este mes.</Text>
-              )}
+                {resultados ? (
+                  <View style={styles.reportContainer}>
+                    <View style={styles.row}><Text style={styles.rowLabel}>Ingresos (Ventas)</Text><Text style={styles.rowValuePos}>{fmt(resultados.ventas)}</Text></View>
+                    <View style={styles.row}><Text style={styles.rowLabel}>(-) Costo (Compras)</Text><Text style={styles.rowValueNeg}>{fmt(resultados.costos)}</Text></View>
+                    <View style={styles.dividerBold} />
+                    <View style={styles.row}><Text style={styles.rowLabelBold}>Utilidad Bruta</Text><Text style={styles.rowValueBold}>{fmt(resultados.utilidadBruta)}</Text></View>
+                    <View style={styles.row}><Text style={styles.rowLabel}>(-) Gastos Operacionales</Text><Text style={styles.rowValueNeg}>{fmt(resultados.gastosOperativos)}</Text></View>
+                    <View style={styles.dividerBold} />
+                    <View style={styles.rowPrimary}><Text style={styles.rowPrimaryLabel}>UTILIDAD NETA</Text><Text style={styles.rowPrimaryValue}>{fmt(resultados.utilidadNeta)}</Text></View>
+                  </View>
+                ) : (
+                  <Text style={styles.emptyText}>No hay datos para este mes.</Text>
+                )}
 
-              {/* Ajuste de Inventario Final para el P&G del mes */}
-              <View style={[styles.reportContainer, { marginTop: 15, backgroundColor: '#f0f9ff', borderColor: '#bae6fd', borderWidth: 1 }]}>
-                 <Text style={[styles.sectionHeader, { color: '#0369a1' }]}>AJUSTE DE INVENTARIO PARA ESTE MES</Text>
-                 <View style={styles.row}>
+                {/* Ajuste de Inventario Final para el P&G del mes */}
+                <View style={[styles.reportContainer, { marginTop: 15, backgroundColor: '#f0f9ff', borderColor: '#bae6fd', borderWidth: 1 }]}>
+                  <Text style={[styles.sectionHeader, { color: '#0369a1' }]}>AJUSTE DE INVENTARIO PARA ESTE MES</Text>
+                  <View style={styles.row}>
                     <Text style={{ fontSize: 13, color: '#0c4a6e', flex: 1 }}>Ingresa el valor total de mercancía al final de este mes para calcular el costo real:</Text>
-                    <TextInput 
+                    <TextInput
                       style={[styles.invInput, { borderColor: '#7dd3fc', width: 130, color: '#000000', fontSize: 16 }]}
                       placeholder="$ 0"
                       placeholderTextColor="#94a3b8"
@@ -309,277 +320,280 @@ export default function ContabilidadScreen() {
                       keyboardType="numeric"
                       defaultValue={formatInput(cierres.find(c => c.mes === mesSeleccionado)?.inventario_final || 0)}
                       onEndEditing={(e) => {
-                         const val = parseInput(e.nativeEvent.text);
-                         useMensualStore.getState().realizarCierre(mesSeleccionado, historial, val);
+                        const val = parseInput(e.nativeEvent.text);
+                        useMensualStore.getState().realizarCierre(mesSeleccionado, historial, val);
                       }}
                     />
-                 </View>
-                 <Text style={{ fontSize: 10, color: '#0369a1', marginTop: 5, fontStyle: 'italic' }}>
+                  </View>
+                  <Text style={{ fontSize: 10, color: '#0369a1', marginTop: 5, fontStyle: 'italic' }}>
                     * Esto calculará el CMV como: (Inv. Mes Anterior + Compras - Inv. Final)
-                 </Text>
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
-        )}
+          )}
 
-        {tab === 'BALANCE' && (
-          <View style={styles.tabContent}>
-            <View style={[styles.card, { marginTop: 20 }]}>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="camera" size={24} color={Colors.orange} />
-                <Text style={styles.cardTitle}>Balance General Actual</Text>
-              </View>
-              <View style={styles.reportContainer}>
-                <Text style={styles.sectionHeader}>ACTIVOS (Lo que tienes)</Text>
-                <View style={styles.row}><Text style={styles.rowLabel}>Efectivo en Caja</Text><Text style={styles.rowValue}>{fmt(balance.efectivoEnCaja)}</Text></View>
-                <View style={styles.row}><Text style={styles.rowLabel}>Préstamos (Cobrar)</Text><Text style={styles.rowValue}>{fmt(balance.prestamosAcumulados)}</Text></View>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabel}>Inventario (Mercancía)</Text>
-                  {editandoInv ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                      <TextInput 
-                        style={[styles.invInput, { color: '#000000' }]} 
-                        value={inpInventario} 
-                        onChangeText={t => setInpInventario(formatInput(t))} 
-                        keyboardType="numeric" 
-                        autoFocus 
-                        cursorColor="#000000"
-                      />
-                      <TouchableOpacity onPress={() => { 
-                        const val = parseInput(inpInventario);
-                        setValorInventario(val); 
-                        setEditandoInv(false); 
-                        const mesActual = new Date().toISOString().slice(0, 7);
-                        useMensualStore.getState().realizarCierre(mesActual, historial, val);
-                      }}>
-                        <MaterialCommunityIcons name="check-circle" size={24} color={Colors.green} />
+          {tab === 'BALANCE' && (
+            <View style={styles.tabContent}>
+              <View style={[styles.card, { marginTop: 20 }]}>
+                <View style={styles.cardHeader}>
+                  <MaterialCommunityIcons name="camera" size={24} color={Colors.orange} />
+                  <Text style={styles.cardTitle}>Balance General Actual</Text>
+                </View>
+                <View style={styles.reportContainer}>
+                  <Text style={styles.sectionHeader}>ACTIVOS (Lo que el negocio tiene)</Text>
+                  <View style={styles.row}><Text style={styles.rowLabel}>Efectivo en Caja</Text><Text style={styles.rowValue}>{fmt(balance.efectivoEnCaja)}</Text></View>
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>Banco / Reservas (Retiros)</Text>
+                    <Text style={styles.rowValuePos}>{fmt(balance.dineroEnBanco)}</Text>
+                  </View>
+                  <View style={styles.row}><Text style={styles.rowLabel}>Préstamos (Por Cobrar)</Text><Text style={styles.rowValue}>{fmt(balance.prestamosAcumulados)}</Text></View>
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>Inventario (Mercancía)</Text>
+                    {editandoInv ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <TextInput
+                          style={[styles.invInput, { color: '#000000' }]}
+                          value={inpInventario}
+                          onChangeText={t => setInpInventario(formatInput(t))}
+                          keyboardType="numeric"
+                          autoFocus
+                          cursorColor="#000000"
+                        />
+                        <TouchableOpacity onPress={() => {
+                          const val = parseInput(inpInventario);
+                          setValorInventario(val);
+                          setEditandoInv(false);
+                          const mesActual = new Date().toISOString().slice(0, 7);
+                          useMensualStore.getState().realizarCierre(mesActual, historial, val);
+                        }}>
+                          <MaterialCommunityIcons name="check-circle" size={24} color={Colors.green} />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }} onPress={() => setEditandoInv(true)}>
+                        <Text style={[styles.rowValue, { color: Colors.blue }]}>{fmt(balance.valorInventario)}</Text>
+                        <MaterialCommunityIcons name="pencil" size={14} color={Colors.blue} />
                       </TouchableOpacity>
+                    )}
+                  </View>
+                  <View style={styles.dividerBold} />
+                  <View style={styles.row}><Text style={styles.rowLabelBold}>TOTAL ACTIVOS</Text><Text style={styles.rowValueBold}>{fmt(balance.totalActivosLíquidos)}</Text></View>
+
+                  <Text style={[styles.sectionHeader, { marginTop: 20 }]}>PATRIMONIO (Valor Total del Negocio)</Text>
+                  <View style={styles.row}><Text style={styles.rowLabel}>Capital Inicial + Aportes</Text><Text style={styles.rowValuePos}>{fmt(balance.capitalInicial + balance.capitalAportado)}</Text></View>
+                  <View style={styles.row}><Text style={styles.rowLabel}>Utilidad Neta Histórica</Text><Text style={styles.rowValuePos}>{fmt(balance.utilidadHistorica + balance.valorInventario)}</Text></View>
+                  <View style={styles.dividerBold} />
+                  <View style={styles.rowPrimary}><Text style={styles.rowPrimaryLabel}>VALOR TOTAL NEGOCIO</Text><Text style={styles.rowPrimaryValue}>{fmt(balance.patrimonio)}</Text></View>
+
+                  {Math.abs(balance.descuadre) > 1000 && (
+                    <View style={styles.descuadreBox}>
+                      <MaterialCommunityIcons name="alert" size={16} color="#dc2626" />
+                      <Text style={styles.descuadreText}>Descuadre Histórico: {fmt(balance.descuadre)}</Text>
                     </View>
-                  ) : (
-                    <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }} onPress={() => setEditandoInv(true)}>
-                      <Text style={[styles.rowValue, { color: Colors.blue }]}>{fmt(balance.valorInventario)}</Text>
-                      <MaterialCommunityIcons name="pencil" size={14} color={Colors.blue} />
-                    </TouchableOpacity>
                   )}
                 </View>
-                <View style={styles.dividerBold} />
-                <View style={styles.row}><Text style={styles.rowLabelBold}>TOTAL ACTIVOS</Text><Text style={styles.rowValueBold}>{fmt(balance.totalActivosLíquidos)}</Text></View>
+              </View>
 
-                <Text style={[styles.sectionHeader, { marginTop: 20 }]}>PATRIMONIO (Tu riqueza)</Text>
-                <View style={styles.row}><Text style={styles.rowLabel}>Capital Inicial</Text><Text style={styles.rowValuePos}>{fmt(balance.capitalInicial)}</Text></View>
-                <View style={styles.row}><Text style={styles.rowLabel}>Utilidad Acumulada</Text><Text style={styles.rowValuePos}>{fmt(balance.utilidadHistorica + balance.valorInventario)}</Text></View>
-                <View style={styles.row}><Text style={styles.rowLabel}>(-) Retiros Totales</Text><Text style={styles.rowValueNeg}>{fmt(balance.retirosSocios)}</Text></View>
-                <View style={styles.dividerBold} />
-                <View style={styles.rowPrimary}><Text style={styles.rowPrimaryLabel}>TOTAL PATRIMONIO</Text><Text style={styles.rowPrimaryValue}>{fmt(balance.patrimonio)}</Text></View>
-
-                {Math.abs(balance.descuadre) > 1000 && (
-                  <View style={styles.descuadreBox}>
-                    <MaterialCommunityIcons name="alert" size={16} color="#dc2626" />
-                    <Text style={styles.descuadreText}>Descuadre Histórico: {fmt(balance.descuadre)}</Text>
+              {/* Tarjeta: Recuperación de Capital */}
+              <View style={[styles.card, { marginTop: 20 }]}>
+                <View style={styles.cardHeader}>
+                  <MaterialCommunityIcons
+                    name={recuperado ? "trophy-outline" : "finance"}
+                    size={24}
+                    color={recuperado ? Colors.green : Colors.gold}
+                  />
+                  <Text style={styles.cardTitle}>Recuperación de Capital</Text>
+                </View>
+                <View style={styles.reportContainer}>
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>Inversión Inicial + Aportes</Text>
+                    <Text style={styles.rowValue}>{fmt(inversionTotal)}</Text>
                   </View>
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>(+) Retiros Brutos de Caja</Text>
+                    <Text style={styles.rowValuePos}>{fmt(retirosBrutos)}</Text>
+                  </View>
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>(-) Pago de Gastos (Servicios/Nómina)</Text>
+                    <Text style={styles.rowValueNeg}>{fmt(pagosGastos)}</Text>
+                  </View>
+                  <View style={styles.dividerBold} />
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabelBold}>Retiro Neto (Tus Ganancias)</Text>
+                    <Text style={styles.rowValueBold}>{fmt(retirosReales)}</Text>
+                  </View>
+                  <View style={styles.dividerBold} />
+
+                  <View style={capitalPendiente > 0 ? styles.rowPending : styles.rowSuccess}>
+                    <Text style={styles.rowLabelBold}>
+                      {capitalPendiente > 0 ? 'Faltante por Recuperar' : 'Excedente (Ganancia Real)'}
+                    </Text>
+                    <Text style={styles.rowValueBold}>{fmt(Math.abs(capitalPendiente))}</Text>
+                  </View>
+                  <View style={styles.progressBg}>
+                    <LinearGradient colors={recuperado ? [Colors.green, '#22c55e'] : [Colors.gold, '#f59e0b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.progressBar, { width: `${porcentajeRecuperado}%` }]} />
+                  </View>
+                  <Text style={styles.progressText}>
+                    {recuperado ? '¡Felicidades! Has recuperado tu inversión inicial.' : `Has recuperado el ${porcentajeRecuperado.toFixed(1)}% de tu inversión inicial.`}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {tab === 'INVENTARIO' && (
+            <View style={styles.tabContent}>
+              <View style={[styles.card, { marginTop: 20 }]}>
+                <View style={styles.cardHeader}>
+                  <MaterialCommunityIcons name="calculator" size={24} color={Colors.green} />
+                  <Text style={styles.cardTitle}>Valorización Manual</Text>
+                </View>
+                <Text style={styles.cardDesc}>
+                  Ingresa el valor total estimado de toda tu mercancía actual en dinero. Este valor se usará para el Balance General.
+                </Text>
+                <View style={styles.reportContainer}>
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabelBold}>Mercancía Total (Hoy)</Text>
+                    <TextInput
+                      style={[styles.invInput, { width: 150, fontSize: 18 }]}
+                      value={inpInventario}
+                      onChangeText={t => setInpInventario(formatInput(t))}
+                      onEndEditing={() => {
+                        const val = parseInput(inpInventario);
+                        setValorInventario(val);
+                        // Vincular con el cierre del mes actual automáticamente
+                        const mesActual = new Date().toISOString().slice(0, 7);
+                        useMensualStore.getState().realizarCierre(mesActual, historial, val);
+                      }}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* KPIs del Inventario (Calculados desde el valor manual o items) */}
+              {(() => {
+                const valManual = valorInventario;
+                return (
+                  <View style={styles.inventoryKpiRow}>
+                    <View style={[styles.kpiCard, { borderLeftColor: Colors.blue }]}>
+                      <Text style={styles.kpiLabel}>Valor en Stock</Text>
+                      <Text style={styles.kpiValue}>{fmt(valManual)}</Text>
+                    </View>
+                    <View style={[styles.kpiCard, { borderLeftColor: Colors.gold }]}>
+                      <Text style={styles.kpiLabel}>Utilidad Est.</Text>
+                      <Text style={styles.kpiValue}>{fmt(valManual * 0.3)}</Text>
+                      <Text style={{ fontSize: 8, color: Colors.gray }}>Est. 30% margen</Text>
+                    </View>
+                  </View>
+                );
+              })()}
+
+              <View style={[styles.card, { marginTop: 20 }]}>
+                <View style={styles.cardHeader}>
+                  <MaterialCommunityIcons name="format-list-bulleted" size={20} color={Colors.gray} />
+                  <Text style={[styles.cardTitle, { fontSize: 16 }]}>Control de Artículos (Opcional)</Text>
+                </View>
+                <Text style={styles.cardDesc}>
+                  Si deseas llevar un conteo detallado por producto, puedes usar las herramientas de abajo.
+                </Text>
+
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: Colors.blue }]}
+                    onPress={() => sincronizarConCatalogo(catalogo)}
+                  >
+                    <MaterialCommunityIcons name="sync" size={18} color="white" />
+                    <Text style={styles.actionBtnText}>Cargar Catálogo</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: Colors.green }]}
+                    onPress={() => {
+                      const initial: Record<string, string> = {};
+                      itemsInv.forEach(i => initial[i.id] = String(i.cantidad));
+                      setCantidadesConteo(initial);
+                      setModalConteo(true);
+                    }}
+                  >
+                    <MaterialCommunityIcons name="clipboard-check" size={18} color="white" />
+                    <Text style={styles.actionBtnText}>Conteo Físico</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {tab === 'AUDITORIA' && (
+            <View style={styles.tabContent}>
+              <View style={[styles.card, { marginTop: 20 }]}>
+                <View style={styles.cardHeader}>
+                  <MaterialCommunityIcons name="magnify-expand" size={24} color={Colors.red} />
+                  <Text style={styles.cardTitle}>Auditoría de Errores</Text>
+                </View>
+                <Text style={styles.cardDesc}>
+                  Aquí puedes ver exactamente qué días el dinero no cuadró. Los errores negativos indican que &quot;faltó&quot; dinero respecto a las ventas.
+                </Text>
+
+                {auditoria.length > 0 ? (
+                  auditoria.map((log, i) => (
+                    <View key={i} style={styles.auditLog}>
+                      <View style={styles.auditRow}>
+                        <Text style={styles.auditDate}>{log.fecha}</Text>
+                        <Text style={[styles.auditMonto, { color: log.monto > 0 ? Colors.green : Colors.orange }]}>
+                          {log.monto > 0 ? '+' : ''}{fmt(log.monto)}
+                        </Text>
+                      </View>
+                      <Text style={styles.auditNote}>{log.nota}</Text>
+                      <View style={styles.auditBadge}>
+                        <Text style={styles.auditBadgeText}>{log.tipo === 'SALTO' ? 'SALTO DE BASE' : 'DESCUADRE CIERRE'}</Text>
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.emptyText}>¡Felicidades! No se han detectado inconsistencias importantes en el historial.</Text>
                 )}
               </View>
             </View>
+          )}
+          {modalConteo && (
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Conteo Físico Real</Text>
+                <Text style={styles.modalSub}>Ingresa lo que tienes físicamente en la tienda hoy.</Text>
 
-            {/* Tarjeta: Recuperación de Capital */}
-            <View style={[styles.card, { marginTop: 20 }]}>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons 
-                  name={recuperado ? "trophy-outline" : "finance"} 
-                  size={24} 
-                  color={recuperado ? Colors.green : Colors.gold} 
-                />
-                <Text style={styles.cardTitle}>Recuperación de Capital</Text>
-              </View>
-              <View style={styles.reportContainer}>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabel}>Inversión Inicial + Aportes</Text>
-                  <Text style={styles.rowValue}>{fmt(inversionTotal)}</Text>
-                </View>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabel}>(+) Retiros Brutos de Caja</Text>
-                  <Text style={styles.rowValuePos}>{fmt(retirosBrutos)}</Text>
-                </View>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabel}>(-) Pago de Gastos (Servicios/Nómina)</Text>
-                  <Text style={styles.rowValueNeg}>{fmt(pagosGastos)}</Text>
-                </View>
-                <View style={styles.dividerBold} />
-                <View style={styles.row}>
-                  <Text style={styles.rowLabelBold}>Retiro Neto (Tus Ganancias)</Text>
-                  <Text style={styles.rowValueBold}>{fmt(retirosReales)}</Text>
-                </View>
-                <View style={styles.dividerBold} />
-                
-                <View style={capitalPendiente > 0 ? styles.rowPending : styles.rowSuccess}>
-                  <Text style={styles.rowLabelBold}>
-                    {capitalPendiente > 0 ? 'Faltante por Recuperar' : 'Excedente (Ganancia Real)'}
-                  </Text>
-                  <Text style={styles.rowValueBold}>{fmt(Math.abs(capitalPendiente))}</Text>
-                </View>
-                <View style={styles.progressBg}>
-                  <LinearGradient colors={recuperado ? [Colors.green, '#22c55e'] : [Colors.gold, '#f59e0b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.progressBar, { width: `${porcentajeRecuperado}%` }]} />
-                </View>
-                <Text style={styles.progressText}>
-                  {recuperado ? '¡Felicidades! Has recuperado tu inversión inicial.' : `Has recuperado el ${porcentajeRecuperado.toFixed(1)}% de tu inversión inicial.`}
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {tab === 'INVENTARIO' && (
-          <View style={styles.tabContent}>
-            <View style={[styles.card, { marginTop: 20 }]}>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="calculator" size={24} color={Colors.green} />
-                <Text style={styles.cardTitle}>Valorización Manual</Text>
-              </View>
-              <Text style={styles.cardDesc}>
-                Ingresa el valor total estimado de toda tu mercancía actual en dinero. Este valor se usará para el Balance General.
-              </Text>
-              <View style={styles.reportContainer}>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabelBold}>Mercancía Total (Hoy)</Text>
-                  <TextInput 
-                    style={[styles.invInput, { width: 150, fontSize: 18 }]}
-                    value={inpInventario}
-                    onChangeText={t => setInpInventario(formatInput(t))}
-                    onEndEditing={() => {
-                      const val = parseInput(inpInventario);
-                      setValorInventario(val);
-                      // Vincular con el cierre del mes actual automáticamente
-                      const mesActual = new Date().toISOString().slice(0, 7);
-                      useMensualStore.getState().realizarCierre(mesActual, historial, val);
-                    }}
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* KPIs del Inventario (Calculados desde el valor manual o items) */}
-            {(() => {
-              const valManual = valorInventario;
-              return (
-                <View style={styles.inventoryKpiRow}>
-                  <View style={[styles.kpiCard, { borderLeftColor: Colors.blue }]}>
-                    <Text style={styles.kpiLabel}>Valor en Stock</Text>
-                    <Text style={styles.kpiValue}>{fmt(valManual)}</Text>
-                  </View>
-                  <View style={[styles.kpiCard, { borderLeftColor: Colors.gold }]}>
-                    <Text style={styles.kpiLabel}>Utilidad Est.</Text>
-                    <Text style={styles.kpiValue}>{fmt(valManual * 0.3)}</Text>
-                    <Text style={{ fontSize: 8, color: Colors.gray }}>Est. 30% margen</Text>
-                  </View>
-                </View>
-              );
-            })()}
-
-            <View style={[styles.card, { marginTop: 20 }]}>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="format-list-bulleted" size={20} color={Colors.gray} />
-                <Text style={[styles.cardTitle, { fontSize: 16 }]}>Control de Artículos (Opcional)</Text>
-              </View>
-              <Text style={styles.cardDesc}>
-                Si deseas llevar un conteo detallado por producto, puedes usar las herramientas de abajo.
-              </Text>
-              
-              <View style={styles.actionButtons}>
-                <TouchableOpacity 
-                  style={[styles.actionBtn, { backgroundColor: Colors.blue }]} 
-                  onPress={() => sincronizarConCatalogo(catalogo)}
-                >
-                  <MaterialCommunityIcons name="sync" size={18} color="white" />
-                  <Text style={styles.actionBtnText}>Cargar Catálogo</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.actionBtn, { backgroundColor: Colors.green }]} 
-                  onPress={() => {
-                    const initial: Record<string, string> = {};
-                    itemsInv.forEach(i => initial[i.id] = String(i.cantidad));
-                    setCantidadesConteo(initial);
-                    setModalConteo(true);
-                  }}
-                >
-                  <MaterialCommunityIcons name="clipboard-check" size={18} color="white" />
-                  <Text style={styles.actionBtnText}>Conteo Físico</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {tab === 'AUDITORIA' && (
-          <View style={styles.tabContent}>
-            <View style={[styles.card, { marginTop: 20 }]}>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="magnify-expand" size={24} color={Colors.red} />
-                <Text style={styles.cardTitle}>Auditoría de Errores</Text>
-              </View>
-              <Text style={styles.cardDesc}>
-                Aquí puedes ver exactamente qué días el dinero no cuadró. Los errores negativos indican que &quot;faltó&quot; dinero respecto a las ventas.
-              </Text>
-
-              {auditoria.length > 0 ? (
-                auditoria.map((log, i) => (
-                  <View key={i} style={styles.auditLog}>
-                    <View style={styles.auditRow}>
-                      <Text style={styles.auditDate}>{log.fecha}</Text>
-                      <Text style={[styles.auditMonto, { color: log.monto > 0 ? Colors.green : Colors.orange }]}>
-                        {log.monto > 0 ? '+' : ''}{fmt(log.monto)}
-                      </Text>
+                <ScrollView style={{ maxHeight: 400 }} keyboardShouldPersistTaps="handled">
+                  {itemsInv.filter(i => i.activo).map(item => (
+                    <View key={item.id} style={styles.conteoRow}>
+                      <Text style={styles.conteoName}>{item.nombre}</Text>
+                      <TextInput
+                        style={styles.conteoInput}
+                        keyboardType="numeric"
+                        value={cantidadesConteo[item.id]}
+                        onChangeText={v => setCantidadesConteo(prev => ({ ...prev, [item.id]: v }))}
+                      />
                     </View>
-                    <Text style={styles.auditNote}>{log.nota}</Text>
-                    <View style={styles.auditBadge}>
-                      <Text style={styles.auditBadgeText}>{log.tipo === 'SALTO' ? 'SALTO DE BASE' : 'DESCUADRE CIERRE'}</Text>
-                    </View>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.emptyText}>¡Felicidades! No se han detectado inconsistencias importantes en el historial.</Text>
-              )}
-            </View>
-          </View>
-        )}
-        {modalConteo && (
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Conteo Físico Real</Text>
-              <Text style={styles.modalSub}>Ingresa lo que tienes físicamente en la tienda hoy.</Text>
-              
-              <ScrollView style={{ maxHeight: 400 }} keyboardShouldPersistTaps="handled">
-                {itemsInv.filter(i => i.activo).map(item => (
-                  <View key={item.id} style={styles.conteoRow}>
-                    <Text style={styles.conteoName}>{item.nombre}</Text>
-                    <TextInput 
-                      style={styles.conteoInput}
-                      keyboardType="numeric"
-                      value={cantidadesConteo[item.id]}
-                      onChangeText={v => setCantidadesConteo(prev => ({ ...prev, [item.id]: v }))}
-                    />
-                  </View>
-                ))}
-              </ScrollView>
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setModalConteo(false)}>
-                  <Text style={styles.modalBtnText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.modalBtnOk} onPress={() => {
-                  const data = Object.entries(cantidadesConteo).map(([id, cant]) => ({
-                    id,
-                    cantidad: parseFloat(cant) || 0
-                  }));
-                  registrarConteoFisico(data);
-                  setModalConteo(false);
-                }}>
-                  <Text style={styles.modalBtnText}>Guardar Conteo</Text>
-                </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setModalConteo(false)}>
+                    <Text style={styles.modalBtnText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.modalBtnOk} onPress={() => {
+                    const data = Object.entries(cantidadesConteo).map(([id, cant]) => ({
+                      id,
+                      cantidad: parseFloat(cant) || 0
+                    }));
+                    registrarConteoFisico(data);
+                    setModalConteo(false);
+                  }}>
+                    <Text style={styles.modalBtnText}>Guardar Conteo</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        )}
-      </ScrollView>
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );
@@ -609,16 +623,16 @@ const styles = StyleSheet.create({
   reportContainer: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 16 },
   sectionHeader: { fontSize: 11, fontWeight: '800', color: Colors.gray, marginBottom: 8 },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
-  rowLabel: { fontSize: 14, color: Colors.dark },
-  rowValue: { fontSize: 14, color: Colors.dark, fontWeight: '600' },
-  rowValuePos: { fontSize: 14, color: Colors.green, fontWeight: '700' },
-  rowValueNeg: { fontSize: 14, color: Colors.orange, fontWeight: '700' },
-  rowLabelBold: { fontSize: 15, fontWeight: '800' },
-  rowValueBold: { fontSize: 15, fontWeight: '900' },
+  rowLabel: { fontSize: 14, color: Colors.dark, flex: 1, marginRight: 10 },
+  rowValue: { fontSize: 14, color: Colors.dark, fontWeight: '600', textAlign: 'right' },
+  rowValuePos: { fontSize: 14, color: Colors.green, fontWeight: '700', textAlign: 'right' },
+  rowValueNeg: { fontSize: 14, color: Colors.orange, fontWeight: '700', textAlign: 'right' },
+  rowLabelBold: { fontSize: 15, fontWeight: '800', flex: 1, marginRight: 10 },
+  rowValueBold: { fontSize: 15, fontWeight: '900', textAlign: 'right' },
   dividerBold: { height: 1, backgroundColor: '#cbd5e1', marginVertical: 8 },
   rowPrimary: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#ecfdf5', padding: 12, borderRadius: 10, marginTop: 5, borderWidth: 1, borderColor: '#a7f3d0' },
-  rowPrimaryLabel: { fontSize: 14, color: '#065f46', fontWeight: '900' },
-  rowPrimaryValue: { fontSize: 16, color: '#065f46', fontWeight: '900' },
+  rowPrimaryLabel: { fontSize: 14, color: '#065f46', fontWeight: '900', flex: 1, marginRight: 10 },
+  rowPrimaryValue: { fontSize: 16, color: '#065f46', fontWeight: '900', textAlign: 'right' },
   emptyText: { textAlign: 'center', color: Colors.gray, marginTop: 20, fontSize: 13 },
   descuadreBox: { flexDirection: 'row', gap: 8, backgroundColor: '#fef2f2', padding: 10, borderRadius: 8, marginTop: 15 },
   descuadreText: { color: '#dc2626', fontSize: 12, fontWeight: '700' },
