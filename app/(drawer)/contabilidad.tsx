@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, TextInput
+  ActivityIndicator, TextInput, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -258,7 +258,11 @@ export default function ContabilidadScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
 
         {tab === 'RESULTADOS' && (
           <View style={styles.tabContent}>
@@ -345,6 +349,7 @@ export default function ContabilidadScreen() {
                     <TextInput 
                       style={[styles.invInput, { borderColor: '#7dd3fc', width: 120 }]}
                       placeholder="$ 0"
+                      placeholderTextColor={Colors.gray}
                       keyboardType="numeric"
                       defaultValue={formatInput(cierres.find(c => c.mes === mesSeleccionado)?.inventario_final || 0)}
                       onEndEditing={(e) => {
@@ -522,7 +527,8 @@ export default function ContabilidadScreen() {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Conteo Físico Real</Text>
               <Text style={styles.modalSub}>Ingresa lo que tienes físicamente en la tienda hoy.</Text>
-              <ScrollView style={{ maxHeight: 400 }}>
+              
+              <ScrollView style={{ maxHeight: 400 }} keyboardShouldPersistTaps="handled">
                 {itemsInv.filter(i => i.activo).map(item => (
                   <View key={item.id} style={styles.conteoRow}>
                     <Text style={styles.conteoName}>{item.nombre}</Text>
@@ -554,6 +560,7 @@ export default function ContabilidadScreen() {
           </View>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -602,7 +609,7 @@ const styles = StyleSheet.create({
   auditNote: { fontSize: 12, color: Colors.gray, marginTop: 4 },
   auditBadge: { alignSelf: 'flex-start', backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginTop: 6 },
   auditBadgeText: { fontSize: 9, fontWeight: '800', color: Colors.gray },
-  invInput: { backgroundColor: '#fff', borderWidth: 1, borderColor: Colors.gray, borderRadius: 8, paddingHorizontal: 10, fontSize: 14, width: 100, textAlign: 'right' },
+  invInput: { backgroundColor: '#fff', borderWidth: 1, borderColor: Colors.gray, borderRadius: 8, paddingHorizontal: 10, fontSize: 14, width: 100, textAlign: 'right', color: Colors.dark },
   rowPending: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#fff7ed', padding: 10, borderRadius: 8, marginTop: 5, borderWidth: 1, borderColor: '#ffedd5' },
   rowSuccess: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#f0fdf4', padding: 10, borderRadius: 8, marginTop: 5, borderWidth: 1, borderColor: '#dcfce7' },
   progressBg: { height: 10, backgroundColor: '#e2e8f0', borderRadius: 5, marginTop: 15, overflow: 'hidden' },
@@ -634,7 +641,7 @@ const styles = StyleSheet.create({
   modalSub: { fontSize: 13, color: Colors.gray, marginBottom: 15 },
   conteoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   conteoName: { fontSize: 14, fontWeight: '600', flex: 1 },
-  conteoInput: { backgroundColor: '#f1f5f9', padding: 8, borderRadius: 8, width: 80, textAlign: 'right', fontWeight: '800' },
+  conteoInput: { backgroundColor: '#f1f5f9', padding: 8, borderRadius: 8, width: 80, textAlign: 'right', fontWeight: '800', color: Colors.dark },
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 20 },
   modalBtnCancel: { flex: 1, padding: 12, borderRadius: 10, backgroundColor: Colors.gray, alignItems: 'center' },
   modalBtnOk: { flex: 1, padding: 12, borderRadius: 10, backgroundColor: Colors.green, alignItems: 'center' },
