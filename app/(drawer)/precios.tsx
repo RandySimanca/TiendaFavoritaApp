@@ -14,12 +14,12 @@ import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { usePreciosStore } from '../../store/preciosStore';
+import { usePreciosStore, Precio } from '../../store/preciosStore';
 import { useAuthStore } from '../../store/authStore';
 import { fmt, formatInput, parseInput } from '../../utils/calcular';
 import { Colors } from '../../constants/Colors';
 import { PDFService } from '../../utils/pdfService';
-import { Precio } from '../../store/preciosStore';
+
 
 // Precio en blanco para el formulario de nuevo producto
 const PRECIO_VACIO: Precio = { nombre: '', proveedor: '', compra: 0, venta: 0, unidad: '' };
@@ -179,7 +179,7 @@ export default function PreciosScreen() {
           <View style={estilos.vacio}>
             <Text style={{ fontSize: 36 }}>🔍</Text>
             <Text style={{ color: Colors.gray, fontSize: 14, fontWeight: '700', marginTop: 8 }}>
-              No se encontró "{busqueda}"
+              No se encontró &quot;{busqueda}&quot;
             </Text>
           </View>
         )}
