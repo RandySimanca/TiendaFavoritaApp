@@ -309,13 +309,13 @@ export default function ContabilidadScreen() {
                 </View>
                 {resultados ? (
                   <View style={styles.reportContainer}>
-                    <View style={styles.row}><Text style={styles.rowLabel}>Ingresos (Ventas)</Text><Text style={styles.rowValuePos}>{fmt(resultados.ventas)}</Text></View>
-                    <View style={styles.row}><Text style={styles.rowLabel}>(-) Costo (Compras)</Text><Text style={styles.rowValueNeg}>{fmt(resultados.costos)}</Text></View>
+                    <View style={styles.row}><Text style={styles.rowLabel}>Ingresos (Ventas)</Text><Text style={[styles.rowValuePos, resultados.ventas < 0 && { color: Colors.red }]}>{fmt(resultados.ventas)}</Text></View>
+                    <View style={styles.row}><Text style={styles.rowLabel}>(-) Costo (Compras)</Text><Text style={[styles.rowValueNeg, { color: Colors.red }]}>{fmt(resultados.costos)}</Text></View>
                     <View style={styles.dividerBold} />
-                    <View style={styles.row}><Text style={styles.rowLabelBold}>Utilidad Bruta</Text><Text style={styles.rowValueBold}>{fmt(resultados.utilidadBruta)}</Text></View>
-                    <View style={styles.row}><Text style={styles.rowLabel}>(-) Gastos Operacionales</Text><Text style={styles.rowValueNeg}>{fmt(resultados.gastosOperativos)}</Text></View>
+                    <View style={styles.row}><Text style={styles.rowLabelBold}>Utilidad Bruta</Text><Text style={[styles.rowValueBold, resultados.utilidadBruta < 0 && { color: Colors.red }]}>{fmt(resultados.utilidadBruta)}</Text></View>
+                    <View style={styles.row}><Text style={styles.rowLabel}>(-) Gastos Operacionales</Text><Text style={[styles.rowValueNeg, { color: Colors.red }]}>{fmt(resultados.gastosOperativos)}</Text></View>
                     <View style={styles.dividerBold} />
-                    <View style={styles.rowPrimary}><Text style={styles.rowPrimaryLabel}>UTILIDAD NETA</Text><Text style={styles.rowPrimaryValue}>{fmt(resultados.utilidadNeta)}</Text></View>
+                    <View style={styles.rowPrimary}><Text style={styles.rowPrimaryLabel}>UTILIDAD NETA</Text><Text style={[styles.rowPrimaryValue, resultados.utilidadNeta < 0 && { color: Colors.red }]}>{fmt(resultados.utilidadNeta)}</Text></View>
                   </View>
                 ) : (
                   <Text style={styles.emptyText}>No hay datos para este mes.</Text>
@@ -431,7 +431,7 @@ export default function ContabilidadScreen() {
                   </View>
                   <View style={styles.row}>
                     <Text style={styles.rowLabel}>(-) Pago de Gastos (Servicios/Nómina)</Text>
-                    <Text style={styles.rowValueNeg}>{fmt(pagosGastos)}</Text>
+                    <Text style={[styles.rowValueNeg, { color: Colors.red }]}>{fmt(balance.gastosAdmonTotales)}</Text>
                   </View>
                   <View style={styles.dividerBold} />
                   <View style={styles.row}>
@@ -452,7 +452,7 @@ export default function ContabilidadScreen() {
                     <Text style={styles.rowLabelBold}>
                       {capitalPendienteReal > 0 ? 'Faltante Real por Recuperar' : 'Excedente (Ganancia Real)'}
                     </Text>
-                    <Text style={styles.rowValueBold}>{fmt(Math.abs(capitalPendienteReal))}</Text>
+                    <Text style={[styles.rowValueBold, capitalPendienteReal > 0 && { color: Colors.red }]}>{fmt(Math.abs(capitalPendienteReal))}</Text>
                   </View>
                   <View style={styles.progressBg}>
                     <LinearGradient colors={recuperado ? [Colors.green, '#22c55e'] : [Colors.gold, '#f59e0b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.progressBar, { width: `${porcentajeRecuperado}%` }]} />
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 14, color: Colors.dark, flex: 1, marginRight: 10 },
   rowValue: { fontSize: 14, color: Colors.dark, fontWeight: '600', textAlign: 'right' },
   rowValuePos: { fontSize: 14, color: Colors.green, fontWeight: '700', textAlign: 'right' },
-  rowValueNeg: { fontSize: 14, color: Colors.orange, fontWeight: '700', textAlign: 'right' },
+  rowValueNeg: { fontSize: 14, color: Colors.red, fontWeight: '700', textAlign: 'right' },
   rowLabelBold: { fontSize: 15, fontWeight: '800', flex: 1, marginRight: 10 },
   rowValueBold: { fontSize: 15, fontWeight: '900', textAlign: 'right' },
   dividerBold: { height: 1, backgroundColor: '#cbd5e1', marginVertical: 8 },

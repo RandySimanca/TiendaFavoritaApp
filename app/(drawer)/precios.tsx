@@ -150,11 +150,11 @@ export default function PreciosScreen() {
                     <Text style={estilos.prodDetalle}>
                       Compra: {fmt(p.compra)} / {p.unidad || 'und'}
                       {'  ·  '}
-                      <Text style={{ color: Colors.greenDark }}>+{margen}%</Text>
+                      <Text style={{ color: ganancia < 0 ? Colors.red : Colors.greenDark }}>{ganancia >= 0 ? '+' : ''}{margen}%</Text>
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end', marginLeft: 12 }}>
-                    <Text style={estilos.prodVenta}>{fmt(p.venta)}</Text>
+                    <Text style={[estilos.prodVenta, p.venta < 0 && { color: Colors.red }]}>{fmt(p.venta)}</Text>
                     <Text style={estilos.prodVentaLabel}>precio venta</Text>
                   </View>
                   {/* Botones editar/eliminar solo para el admin */}

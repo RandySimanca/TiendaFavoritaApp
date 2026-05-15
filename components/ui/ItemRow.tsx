@@ -32,7 +32,7 @@ export function ItemRow({ nombre, valor, placeholderNombre, mostrarEliminar, onC
 
       {/* Campo numérico: valor en pesos con puntos de miles */}
       <TextInput
-        style={estilos.inputNumero}
+        style={[estilos.inputNumero, valor < 0 && { color: Colors.red }]}
         value={formatInput(valor)}
         onChangeText={v => onChangeValor(parseInput(v))}
         keyboardType="numeric"

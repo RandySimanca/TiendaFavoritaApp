@@ -10,7 +10,7 @@ import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useMensualStore, CierreMensual } from '../../store/mensualStore';
 import { useHistorialStore } from '../../store/historialStore';
 import { useGastosStore } from '../../store/gastosStore';
-import { fmt } from '../../utils/calcular';
+import { fmt, generarCierreMensual } from '../../utils/calcular';
 import { Colors } from '../../constants/Colors';
 
 const getDetallesSeguro = (jsonDetalle: any) => {
@@ -18,14 +18,14 @@ const getDetallesSeguro = (jsonDetalle: any) => {
   if (typeof jsonDetalle === 'object') return jsonDetalle;
   try {
     return JSON.parse(jsonDetalle);
-  } catch (e) {
+  } catch {
     return null;
   }
 };
 
 export default function MensualScreen() {
   const navigation = useNavigation<DrawerNavigationProp<any>>();
-  const { cierres, cargando, cargar, realizarCierre } = useMensualStore();
+  const { cierres, cargando, cargar, realizarCierre, reabrirMes } = useMensualStore();
   const { historial } = useHistorialStore();
   const { gastos: gastosAdmon, cargar: cargarGastos } = useGastosStore();
   const [procesando, setProcesando] = useState(false);
@@ -41,12 +41,11 @@ export default function MensualScreen() {
   useEffect(() => {
     cargar();
     cargarGastos(mesActual);
-  }, []);
+  }, [cargar, cargarGastos, mesActual]);
 
   // Recalcular la vista previa cuando el historial cambie
   useEffect(() => {
     if (historial.length > 0) {
-      const { generarCierreMensual } = require('../../utils/calcular');
       const p = generarCierreMensual(mesActual, historial, gastosAdmon);
       setPreview(p);
     }
@@ -73,6 +72,19 @@ export default function MensualScreen() {
     Alert.alert("Éxito", "El cierre mensual se ha generado y sincronizado correctamente.");
   };
 
+  const handleReabrirMes = (mes: string) => {
+    Alert.alert("Reabrir Mes", `¿Estás seguro que deseas reabrir el mes de ${mes}? Esto eliminará el resumen estático y permitirá que los datos se recalculen con el historial actual.`, [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Reabrir", style: "destructive", onPress: async () => {
+        setProcesando(true);
+        await reabrirMes(mes);
+        setSelectedCierre(null);
+        setProcesando(false);
+        Alert.alert("Éxito", "El mes ha sido reabierto correctamente.");
+      }}
+    ]);
+  };
+
   // Datos a mostrar: Priorizar el cierre guardado si existe, de lo contrario la vista previa
   const actual = cierres.find(c => c.mes === mesActual) || preview;
   const anteriorClave = () => {
@@ -85,7 +97,6 @@ export default function MensualScreen() {
 
   // Generar lista combinada de meses (historial en vivo + cierres)
   const mesesHistoricos = Array.from(new Set(historial.map((d: any) => d.fecha?.substring(0, 7)).filter(Boolean))).sort().reverse();
-  const { generarCierreMensual } = require('../../utils/calcular');
   
   const listaMostrada = mesesHistoricos.map(mes => {
     const cerrado = cierres.find(c => c.mes === mes);
@@ -157,13 +168,13 @@ export default function MensualScreen() {
         <View style={styles.statsGrid}>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Ventas Totales</Text>
-            <Text style={[styles.statValue, { color: Colors.green }]}>
+            <Text style={[styles.statValue, { color: (actual?.venta_total || 0) < 0 ? Colors.red : Colors.green }]}>
               {fmt(actual?.venta_total || 0)}
             </Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Compras</Text>
-            <Text style={[styles.statValue, { color: Colors.blue }]}>
+            <Text style={[styles.statValue, { color: (actual?.compras_total || 0) < 0 ? Colors.red : Colors.blue }]}>
               {fmt(actual?.compras_total || 0)}
             </Text>
           </View>
@@ -172,7 +183,7 @@ export default function MensualScreen() {
         <View style={[styles.statsGrid, { marginTop: 15 }]}>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Gastos</Text>
-            <Text style={[styles.statValue, { color: Colors.orange }]}>
+            <Text style={[styles.statValue, { color: (actual?.gasto_total || 0) < 0 ? Colors.red : Colors.orange }]}>
               {fmt(actual?.gasto_total || 0)}
             </Text>
           </View>
@@ -219,7 +230,7 @@ export default function MensualScreen() {
 
         <View style={styles.utilidadBox}>
           <Text style={styles.utilidadLabel}>Utilidad Neta (Ventas - Compras - Gastos)</Text>
-          <Text style={styles.utilidadValue}>{fmt(actual?.utilidad || 0)}</Text>
+          <Text style={[styles.utilidadValue, { color: (actual?.utilidad || 0) < 0 ? Colors.red : Colors.dark }]}>{fmt(actual?.utilidad || 0)}</Text>
         </View>
 
         <TouchableOpacity 
@@ -262,7 +273,7 @@ export default function MensualScreen() {
                   {!c.isCerrado && <MaterialCommunityIcons name="clock-outline" size={14} color={Colors.orange} />}
                   {c.isCerrado && <MaterialCommunityIcons name="lock-check" size={14} color={Colors.green} />}
                 </View>
-                <Text style={[styles.histUtilidad, !c.isCerrado && { color: Colors.orange }]}>{fmt(c.utilidad)}</Text>
+                <Text style={[styles.histUtilidad, (c.utilidad < 0) ? { color: Colors.red } : (!c.isCerrado && { color: Colors.orange })]}>{fmt(c.utilidad)}</Text>
               </View>
               <Text style={styles.histSub}>
                 V: {fmt(c.venta_total)} • C: {fmt(c.compras_total)} • G: {fmt(c.gasto_total)}
@@ -298,13 +309,13 @@ export default function MensualScreen() {
                   <View style={styles.statsGrid}>
                     <View style={styles.statItem}>
                       <Text style={styles.statLabel}>Ventas Totales</Text>
-                      <Text style={[styles.statValue, { color: Colors.green }]}>
+                      <Text style={[styles.statValue, { color: (selectedCierre.venta_total < 0) ? Colors.red : Colors.green }]}>
                         {fmt(selectedCierre.venta_total)}
                       </Text>
                     </View>
                     <View style={styles.statItem}>
                       <Text style={styles.statLabel}>Compras</Text>
-                      <Text style={[styles.statValue, { color: Colors.blue }]}>
+                      <Text style={[styles.statValue, { color: (selectedCierre.compras_total < 0) ? Colors.red : Colors.blue }]}>
                         {fmt(selectedCierre.compras_total)}
                       </Text>
                     </View>
@@ -313,7 +324,7 @@ export default function MensualScreen() {
                   <View style={[styles.statsGrid, { marginTop: 15 }]}>
                     <View style={styles.statItem}>
                       <Text style={styles.statLabel}>Gastos</Text>
-                      <Text style={[styles.statValue, { color: Colors.orange }]}>
+                      <Text style={[styles.statValue, { color: (selectedCierre.gasto_total < 0) ? Colors.red : Colors.orange }]}>
                         {fmt(selectedCierre.gasto_total)}
                       </Text>
                     </View>
@@ -359,7 +370,7 @@ export default function MensualScreen() {
 
                   <View style={styles.utilidadBox}>
                     <Text style={styles.utilidadLabel}>Utilidad Neta (Ventas - Compras - Gastos)</Text>
-                    <Text style={styles.utilidadValue}>{fmt(selectedCierre.utilidad)}</Text>
+                    <Text style={[styles.utilidadValue, { color: (selectedCierre.utilidad < 0) ? Colors.red : Colors.dark }]}>{fmt(selectedCierre.utilidad)}</Text>
                   </View>
 
                   {(() => {
@@ -379,6 +390,23 @@ export default function MensualScreen() {
                       </View>
                     );
                   })()}
+
+                  {selectedCierre.mes === mesActual && cierres.some(c => c.mes === selectedCierre.mes) && (
+                    <TouchableOpacity 
+                      style={[styles.button, { marginTop: 15, backgroundColor: Colors.orange }]} 
+                      onPress={() => handleReabrirMes(selectedCierre.mes)}
+                      disabled={procesando}
+                    >
+                      {procesando ? (
+                        <ActivityIndicator color={Colors.white} />
+                      ) : (
+                        <>
+                          <MaterialCommunityIcons name="lock-open-variant" size={20} color={Colors.white} />
+                          <Text style={styles.buttonText}>Reabrir Mes</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               </ScrollView>
             </View>

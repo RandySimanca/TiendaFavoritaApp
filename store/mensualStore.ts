@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { dbGetCierresMensuales, dbInsertCierreMensual } from '../utils/database';
+import { dbGetCierresMensuales, dbInsertCierreMensual, dbDeleteCierreMensual } from '../utils/database';
 import { supabase } from '../utils/supabase';
 import { generarCierreMensual } from '../utils/calcular';
 import { useGastosStore } from './gastosStore';
@@ -25,6 +25,7 @@ interface MensualStore {
 
   cargar: () => Promise<void>;
   realizarCierre: (mes: string, historial: any[], inventarioFinal?: number) => Promise<void>;
+  reabrirMes: (mes: string) => Promise<void>;
   suscribirCambios: () => void;
 }
 
@@ -74,6 +75,25 @@ export const useMensualStore = create<MensualStore>((set, get) => ({
       if (error) console.error('Error cloud cierre mensual:', error.message);
     } catch (e) {
       console.error('Error realizando cierre mensual:', e);
+    }
+  },
+
+  reabrirMes: async (mes: string) => {
+    try {
+      // 1. Local
+      await dbDeleteCierreMensual(mes);
+      const nuevos = await dbGetCierresMensuales();
+      set({ cierres: nuevos as CierreMensual[] });
+
+      // 2. Cloud
+      const { error } = await supabase
+        .from('cierres_mensuales')
+        .delete()
+        .eq('mes', mes);
+
+      if (error) console.error('Error cloud eliminando cierre mensual:', error.message);
+    } catch (e) {
+      console.error('Error reabriendo mes:', e);
     }
   },
 

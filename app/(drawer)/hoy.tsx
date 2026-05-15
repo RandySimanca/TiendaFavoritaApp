@@ -286,7 +286,7 @@ export default function HoyScreen() {
             <Text style={estilos.inputLabel}>Base con la que abrió:</Text>
             <Text style={estilos.prefijo}>$</Text>
             <TextInput 
-              style={estilos.inputNumerico} 
+              style={[estilos.inputNumerico, base < 0 && { color: Colors.red }]} 
               value={formatInput(base)} 
               onChangeText={v => setBase(parseInput(v))} 
               keyboardType="numeric" 
@@ -300,7 +300,7 @@ export default function HoyScreen() {
                 <Text style={estilos.inputLabel}>Otros ingresos (base):</Text>
                 <Text style={estilos.prefijo}>$</Text>
                 <TextInput 
-                  style={estilos.inputNumerico} 
+                  style={[estilos.inputNumerico, ingreso < 0 && { color: Colors.red }]} 
                   value={formatInput(ingreso)} 
                   onChangeText={v => setIngreso(parseInput(v))} 
                   keyboardType="numeric" 
@@ -358,7 +358,7 @@ export default function HoyScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={estilos.factProv}>🏭 {f.proveedor}</Text>
                 <Text style={estilos.factResumen} numberOfLines={1}>{f.resumen}</Text>
-                <Text style={estilos.factValor} numberOfLines={1} adjustsFontSizeToFit>{fmt(f.total)}</Text>
+                <Text style={[estilos.factValor, f.total < 0 && { color: Colors.red }]} numberOfLines={1} adjustsFontSizeToFit>{fmt(f.total)}</Text>
               </View>
               {esAdmin && (
                 <TouchableOpacity style={estilos.btnEliminar} onPress={() => eliminarFactura(f.id)}>
@@ -424,7 +424,7 @@ export default function HoyScreen() {
             <Text style={estilos.inputLabel}>Valor del préstamo:</Text>
             <Text style={estilos.prefijo}>$</Text>
             <TextInput
-              style={estilos.inputNumerico}
+              style={[estilos.inputNumerico, prestamo < 0 && { color: Colors.red }]}
               placeholder="0"
               keyboardType="numeric"
               value={formatInput(prestamo)}
@@ -448,7 +448,7 @@ export default function HoyScreen() {
             <Text style={estilos.inputLabel}>Plata contada al cerrar:</Text>
             <Text style={estilos.prefijo}>$</Text>
             <TextInput 
-              style={[estilos.inputNumerico, { borderColor: Colors.green, borderWidth: 3 }]} 
+              style={[estilos.inputNumerico, { borderColor: Colors.green, borderWidth: 3 }, cierre < 0 && { color: Colors.red }]} 
               value={formatInput(cierre)} 
               onChangeText={v => setCierre(parseInput(v))} 
               keyboardType="numeric" 
@@ -462,7 +462,7 @@ export default function HoyScreen() {
                 <Text style={estilos.inputLabel}>💼 Retiro del día (personal):</Text>
                 <Text style={estilos.prefijo}>$</Text>
                 <TextInput 
-                  style={estilos.inputNumerico} 
+                  style={[estilos.inputNumerico, retiro < 0 && { color: Colors.red }]} 
                   value={formatInput(retiro)} 
                   onChangeText={v => setRetiro(parseInput(v))} 
                   keyboardType="numeric" 

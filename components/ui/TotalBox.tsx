@@ -15,8 +15,9 @@ interface TotalBoxProps {
 }
 
 export function TotalBox({ label, valor, color }: TotalBoxProps) {
+  const bgColor = valor < 0 ? Colors.red : color;
   return (
-    <View style={[estilos.contenedor, { backgroundColor: color }]}>
+    <View style={[estilos.contenedor, { backgroundColor: bgColor }]}>
       <Text style={estilos.label}>{label}</Text>
       <Text style={estilos.valor} numberOfLines={1} adjustsFontSizeToFit>{fmt(valor)}</Text>
     </View>

@@ -165,6 +165,10 @@ export async function dbInsertCierreMensual(c: {
   );
 }
 
+export async function dbDeleteCierreMensual(mes: string) {
+  await db.runAsync('DELETE FROM cierres_mensuales WHERE mes = ?', mes);
+}
+
 // ── UTILIDADES DE GASTOS ADMINISTRATIVOS ──
 
 export async function dbGetGastosAdministrativos(mes?: string) {
